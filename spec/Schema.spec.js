@@ -20,17 +20,17 @@ var hasAllPODobject = () => {
 };
 
 describe('SchemaController', () => {
-  beforeEach(() => {
+  beforeEach(() => {
     config = new Config('test');
   });
 
   it('can validate one object', (done) => {
     config.database.loadSchema().then((schema) => {
       return schema.validateObject('TestObject', {a: 1, b: 'yo', c: false});
-    }).then((schema) => {
+    }).then(() => {
       done();
     }, (error) => {
-      fail(error);
+      jfail(error);
       done();
     });
   });
@@ -38,10 +38,10 @@ describe('SchemaController', () => {
   it('can validate one object with dot notation', (done) => {
     config.database.loadSchema().then((schema) => {
       return schema.validateObject('TestObjectWithSubDoc', {x: false, y: 'YY', z: 1, 'aObject.k1': 'newValue'});
-    }).then((schema) => {
+    }).then(() => {
       done();
     }, (error) => {
-      fail(error);
+      jfail(error);
       done();
     });
   });
@@ -51,7 +51,22 @@ describe('SchemaController', () => {
       return schema.validateObject('Foo', {x: true, y: 'yyy', z: 0});
     }).then((schema) => {
       return schema.validateObject('Foo', {x: false, y: 'YY', z: 1});
+    }).then(() => {
+      done();
+    });
+  });
+
+  it('can validate Relation object', (done) => {
+    config.database.loadSchema().then((schema) => {
+      return schema.validateObject('Stuff', {aRelation: {__type:'Relation',className:'Stuff'}});
     }).then((schema) => {
+      return schema.validateObject('Stuff', {aRelation: {__type:'Pointer',className:'Stuff'}})
+      .then(() => {
+        fail('expected invalidity');
+        done();
+      }, done);
+    }, (err) => {
+      fail(err);
       done();
     });
   });
@@ -88,18 +103,18 @@ describe('SchemaController', () => {
       return schema.setPermissions('Stuff', {
         'find': {}
       });
-    }).then((schema) => {
+    }).then(() => {
       var query = new Parse.Query('Stuff');
       return query.find();
-    }).then((results) => {
+    }).then(() => {
       fail('Class permissions should have rejected this query.');
       done();
-    }, (e) => {
+    }, () => {
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('class-level permissions test user', (done) => {
+  it('class-level permissions test user', (done) => {
     var user;
     createTestUser().then((u) => {
       user = u;
@@ -113,18 +128,18 @@ describe('SchemaController', () => {
       return schema.setPermissions('Stuff', {
         'find': find
       });
-    }).then((schema) => {
+    }).then(() => {
       var query = new Parse.Query('Stuff');
       return query.find();
-    }).then((results) => {
+    }).then(() => {
       done();
-    }, (e) => {
+    }, () => {
       fail('Class permissions should have allowed this query.');
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('class-level permissions test get', (done) => {
+  it('class-level permissions test get', (done) => {
     var obj;
     createTestUser()
     .then(user => {
@@ -140,7 +155,7 @@ describe('SchemaController', () => {
           'find': find,
           'get': get
         });
-      }).then((schema) => {
+      }).then(() => {
         obj = new Parse.Object('Stuff');
         obj.set('foo', 'bar');
         return obj.save();
@@ -148,14 +163,14 @@ describe('SchemaController', () => {
         obj = o;
         var query = new Parse.Query('Stuff');
         return query.find();
-      }).then((results) => {
+      }).then(() => {
         fail('Class permissions should have rejected this query.');
         done();
-      }, (e) => {
+      }, () => {
         var query = new Parse.Query('Stuff');
-        return query.get(obj.id).then((o) => {
+        return query.get(obj.id).then(() => {
           done();
-        }, (e) => {
+        }, () => {
           fail('Class permissions should have allowed this get query');
           done();
         });
@@ -163,7 +178,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('can add classes without needing an object', done => {
+  it('can add classes without needing an object', done => {
     config.database.loadSchema()
     .then(schema => schema.addClassIfNotExists('NewClass', {
       foo: {type: 'String'}
@@ -211,7 +226,7 @@ describe('SchemaController', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])('will resolve class creation races appropriately', done => {
+  it('will resolve class creation races appropriately', done => {
     // If two callers race to create the same schema, the response to the
     // race loser should be the same as if they hadn't been racing.
     config.database.loadSchema()
@@ -388,7 +403,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('will create classes', done => {
+  it('will create classes', done => {
     config.database.loadSchema()
     .then(schema => schema.addClassIfNotExists('NewClass', {
       aNumber: {type: 'Number'},
@@ -412,7 +427,6 @@ describe('SchemaController', () => {
           ACL: { type: 'ACL' },
           aString: { type: 'String' },
           aNumber: { type: 'Number' },
-          aString: { type: 'String' },
           aBool: { type: 'Boolean' },
           aDate: { type: 'Date' },
           aObject: { type: 'Object' },
@@ -436,7 +450,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates the default fields for non-custom classes', done => {
+  it('creates the default fields for non-custom classes', done => {
     config.database.loadSchema()
     .then(schema => schema.addClassIfNotExists('_Installation', {
       foo: {type: 'Number'},
@@ -478,7 +492,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates non-custom classes which include relation field', done => {
+  it('creates non-custom classes which include relation field', done => {
     config.database.loadSchema()
     .then(schema => schema.addClassIfNotExists('_Role', {}))
     .then(actualSchema => {
@@ -507,7 +521,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates non-custom classes which include pointer field', done => {
+  it('creates non-custom classes which include pointer field', done => {
     config.database.loadSchema()
     .then(schema => schema.addClassIfNotExists('_Session', {}))
     .then(actualSchema => {
@@ -552,7 +566,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('can check if a class exists', done => {
+  it('can check if a class exists', done => {
     config.database.loadSchema()
     .then(schema => {
       return schema.addClassIfNotExists('NewClass', {})
@@ -573,10 +587,10 @@ describe('SchemaController', () => {
       })
       .catch(error => {
         fail('Couldn\'t create class');
-        fail(error);
+        jfail(error);
       });
     })
-    .catch(error => fail('Couldn\'t load schema'));
+    .catch(() => fail('Couldn\'t load schema'));
   });
 
   it('refuses to delete fields from invalid class names', done => {
@@ -617,7 +631,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('refuses to delete fields that dont exist', done => {
+  it('refuses to delete fields that dont exist', done => {
     hasAllPODobject().save()
     .then(() => config.database.loadSchema())
     .then(schema => schema.deleteField('missingField', 'HasAllPOD'))
@@ -628,7 +642,7 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('drops related collection when deleting relation field', done => {
+  it('drops related collection when deleting relation field', done => {
     var obj1 = hasAllPODobject();
     obj1.save()
       .then(savedObj1 => {
@@ -654,12 +668,12 @@ describe('SchemaController', () => {
         }
         done();
       }, error => {
-        fail(error);
+        jfail(error);
         done();
       });
   });
 
-  it_exclude_dbs(['postgres'])('can delete relation field when related _Join collection not exist', done => {
+  it('can delete relation field when related _Join collection not exist', done => {
     config.database.loadSchema()
     .then(schema => {
       schema.addClassIfNotExists('NewClass', {
@@ -688,7 +702,13 @@ describe('SchemaController', () => {
       })
       .then(() => config.database.collectionExists('_Join:relationField:NewClass'))
       .then(exist => {
-        expect(exist).toEqual(false);
+        on_db('postgres', () => {
+          // We create the table when creating the column
+          expect(exist).toEqual(true);
+        }, () => {
+          expect(exist).toEqual(false);
+        });
+
       })
       .then(() => schema.deleteField('relationField', 'NewClass', config.database))
       .then(() => schema.reloadData())
@@ -705,11 +725,11 @@ describe('SchemaController', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('can delete string fields and resave as number field', done => {
+  it('can delete string fields and resave as number field', done => {
     Parse.Object.disableSingleInstance();
     var obj1 = hasAllPODobject();
     var obj2 = hasAllPODobject();
-    var p = Parse.Object.saveAll([obj1, obj2])
+    Parse.Object.saveAll([obj1, obj2])
     .then(() => config.database.loadSchema())
     .then(schema => schema.deleteField('aString', 'HasAllPOD', config.database))
     .then(() => new Parse.Query('HasAllPOD').get(obj1.id))
@@ -728,12 +748,12 @@ describe('SchemaController', () => {
       });
     })
     .catch(error => {
-      fail(error);
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('can delete pointer fields and resave as string', done => {
+  it('can delete pointer fields and resave as string', done => {
     Parse.Object.disableSingleInstance();
     var obj1 = new Parse.Object('NewClass');
     obj1.save()
@@ -802,4 +822,321 @@ describe('SchemaController', () => {
     });
     done();
   });
+
+  it('yields a proper schema mismatch error (#2661)', done => {
+    const anObject = new Parse.Object('AnObject');
+    const anotherObject = new Parse.Object('AnotherObject');
+    const someObject = new Parse.Object('SomeObject');
+    Parse.Object.saveAll([anObject, anotherObject, someObject]).then(() => {
+      anObject.set('pointer', anotherObject);
+      return anObject.save();
+    }).then(() => {
+      anObject.set('pointer', someObject);
+      return anObject.save();
+    }).then(() => {
+      fail('shoud not save correctly');
+      done();
+    }, (err) => {
+      expect(err instanceof Parse.Error).toBeTruthy();
+      expect(err.message).toEqual('schema mismatch for AnObject.pointer; expected Pointer<AnotherObject> but got Pointer<SomeObject>')
+      done();
+    });
+  });
+
+  it('yields a proper schema mismatch error bis (#2661)', done => {
+    const anObject = new Parse.Object('AnObject');
+    const someObject = new Parse.Object('SomeObject');
+    Parse.Object.saveAll([anObject, someObject]).then(() => {
+      anObject.set('number', 1);
+      return anObject.save();
+    }).then(() => {
+      anObject.set('number', someObject);
+      return anObject.save();
+    }).then(() => {
+      fail('shoud not save correctly');
+      done();
+    }, (err) => {
+      expect(err instanceof Parse.Error).toBeTruthy();
+      expect(err.message).toEqual('schema mismatch for AnObject.number; expected Number but got Pointer<SomeObject>')
+      done();
+    });
+  });
+
+  it('yields a proper schema mismatch error ter (#2661)', done => {
+    const anObject = new Parse.Object('AnObject');
+    const someObject = new Parse.Object('SomeObject');
+    Parse.Object.saveAll([anObject, someObject]).then(() => {
+      anObject.set('pointer', someObject);
+      return anObject.save();
+    }).then(() => {
+      anObject.set('pointer', 1);
+      return anObject.save();
+    }).then(() => {
+      fail('shoud not save correctly');
+      done();
+    }, (err) => {
+      expect(err instanceof Parse.Error).toBeTruthy();
+      expect(err.message).toEqual('schema mismatch for AnObject.pointer; expected Pointer<SomeObject> but got Number')
+      done();
+    });
+  });
+
+  it('properly handles volatile _Schemas', done => {
+    function validateSchemaStructure(schema) {
+      expect(schema.hasOwnProperty('className')).toBe(true);
+      expect(schema.hasOwnProperty('fields')).toBe(true);
+      expect(schema.hasOwnProperty('classLevelPermissions')).toBe(true);
+    }
+    function validateSchemaDataStructure(schemaData) {
+      Object.keys(schemaData).forEach(className => {
+        const schema = schemaData[className];
+        // Hooks has className...
+        if (className != '_Hooks') {
+          expect(schema.hasOwnProperty('className')).toBe(false);
+        }
+        expect(schema.hasOwnProperty('fields')).toBe(false);
+        expect(schema.hasOwnProperty('classLevelPermissions')).toBe(false);
+      });
+    }
+    let schema;
+    config.database.loadSchema().then(s => {
+      schema = s;
+      return schema.getOneSchema('_User', false);
+    }).then(userSchema => {
+      validateSchemaStructure(userSchema);
+      validateSchemaDataStructure(schema.data);
+      return schema.getOneSchema('_PushStatus', true);
+    }).then(pushStatusSchema => {
+      validateSchemaStructure(pushStatusSchema);
+      validateSchemaDataStructure(schema.data);
+      done();
+    });
+  });
 });
+
+describe('Class Level Permissions for requiredAuth', () => {
+
+  beforeEach(() => {
+    config = new Config('test');
+  });
+
+  function createUser() {
+    const user =  new Parse.User();
+    user.set("username", "hello");
+    user.set("password", "world");
+    return user.signUp(null);
+  }
+
+  it('required auth test find', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'find': {
+          'requiresAuthentication': true
+        }
+      });
+    }).then(() => {
+      var query = new Parse.Query('Stuff');
+      return query.find();
+    }).then(() => {
+      fail('Class permissions should have rejected this query.');
+      done();
+    }, (e) => {
+      expect(e.message).toEqual('Permission denied, user needs to be authenticated.');
+      done();
+    });
+  });
+
+  it('required auth test find authenticated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'find': {
+          'requiresAuthentication': true
+        }
+      });
+    }).then(() => {
+      return createUser();
+    }).then(() => {
+      var query = new Parse.Query('Stuff');
+      return query.find();
+    }).then((results) => {
+      expect(results.length).toEqual(0);
+      done();
+    }, (e) => {
+      console.error(e);
+      fail("Should not have failed");
+      done();
+    });
+  });
+
+  it('required auth should allow create authenticated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'create': {
+          'requiresAuthentication': true
+        }
+      });
+    }).then(() => {
+      return createUser();
+    }).then(() => {
+      const stuff = new Parse.Object('Stuff');
+      stuff.set('foo', 'bar');
+      return stuff.save();
+    }).then(() => {
+      done();
+    }, (e) => {
+      console.error(e);
+      fail("Should not have failed");
+      done();
+    });
+  });
+
+  it('required auth should reject create when not authenticated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'create': {
+          'requiresAuthentication': true
+        }
+      });
+    }).then(() => {
+      const stuff = new Parse.Object('Stuff');
+      stuff.set('foo', 'bar');
+      return stuff.save();
+    }).then(() => {
+      fail('Class permissions should have rejected this query.');
+      done();
+    }, (e) => {
+      expect(e.message).toEqual('Permission denied, user needs to be authenticated.');
+      done();
+    });
+  });
+
+  it('required auth test create/get/update/delete authenticated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'create': {
+          'requiresAuthentication': true
+        },
+        'get': {
+          'requiresAuthentication': true
+        },
+        'delete': {
+          'requiresAuthentication': true
+        },
+        'update': {
+          'requiresAuthentication': true
+        }
+      });
+    }).then(() => {
+      return createUser();
+    }).then(() => {
+      const stuff = new Parse.Object('Stuff');
+      stuff.set('foo', 'bar');
+      return stuff.save().then(() => {
+        const query = new Parse.Query('Stuff');
+        return query.get(stuff.id);
+      });
+    }).then((gotStuff) => {
+      return gotStuff.save({'foo': 'baz'}).then(() => {
+        return gotStuff.destroy();
+      })
+    }).then(() => {
+      done();
+    }, (e) => {
+      console.error(e);
+      fail("Should not have failed");
+      done();
+    });
+  });
+
+  it('required auth test create/get/update/delete not authenitcated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'get': {
+          'requiresAuthentication': true
+        },
+        'delete': {
+          'requiresAuthentication': true
+        },
+        'update': {
+          'requiresAuthentication': true
+        },
+        'create': {
+          '*': true
+        }
+      });
+    }).then(() => {
+      const stuff = new Parse.Object('Stuff');
+      stuff.set('foo', 'bar');
+      return stuff.save().then(() => {
+        const query = new Parse.Query('Stuff');
+        return query.get(stuff.id);
+      });
+    }).then(() => {
+      fail("Should not succeed!");
+      done();
+    }, (e) => {
+      expect(e.message).toEqual('Permission denied, user needs to be authenticated.');
+      done();
+    });
+  });
+
+  it('required auth test create/get/update/delete not authenitcated', (done) => {
+    config.database.loadSchema().then((schema) => {
+      // Just to create a valid class
+      return schema.validateObject('Stuff', {foo: 'bar'});
+    }).then((schema) => {
+      return schema.setPermissions('Stuff', {
+        'find': {
+          'requiresAuthentication': true
+        },
+        'delete': {
+          'requiresAuthentication': true
+        },
+        'update': {
+          'requiresAuthentication': true
+        },
+        'create': {
+          '*': true
+        },
+        'get': {
+          '*': true
+        }
+      });
+    }).then(() => {
+      const stuff = new Parse.Object('Stuff');
+      stuff.set('foo', 'bar');
+      return stuff.save().then(() => {
+        const query = new Parse.Query('Stuff');
+        return query.get(stuff.id);
+      })
+    }).then((result) => {
+      expect(result.get('foo')).toEqual('bar');
+      const query = new Parse.Query('Stuff');
+      return query.find();
+    }).then(() => {
+      fail("Should not succeed!");
+      done();
+    }, (e) => {
+      expect(e.message).toEqual('Permission denied, user needs to be authenticated.');
+      done();
+    });
+  });
+})

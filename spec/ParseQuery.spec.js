@@ -23,7 +23,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("notEqualTo with Relation is working", function(done) {
+  it("notEqualTo with Relation is working", function(done) {
     var user = new Parse.User();
     user.setPassword("asdf");
     user.setUsername("zxcv");
@@ -114,10 +114,39 @@ describe('Parse.Query testing', () => {
       // Only cake3 is liked only by user1
       return query.find().then(function(results){
         equal(results.length, 1);
-        let cake = results[0];
+        const cake = results[0];
         expect(cake.id).toBe(cake3.id);
       });
     }).then(function(){
+      var query = new Parse.Query(Cake);
+      // Exclude user1
+      query.notEqualTo("liker", user1);
+      // Only cake1
+      query.equalTo("objectId", cake1.id)
+      // user1 likes cake1 so this should return no results
+      return query.find().then(function(results){
+        equal(results.length, 0);
+      });
+    }).then(function(){
+      var query = new Parse.Query(Cake);
+      query.notEqualTo("hater", user2);
+      query.notEqualTo("liker", user2);
+      // user2 doesn't like any cake so this should be 0
+      return query.find().then(function(results){
+        equal(results.length, 0);
+      });
+    }).then(function(){
+      var query = new Parse.Query(Cake);
+      query.equalTo("hater", user);
+      query.equalTo("liker", user);
+      // user doesn't hate any cake so this should be 0
+      return query.find().then(function(results){
+        equal(results.length, 0);
+      });
+    }).then(function(){
+      done();
+    }).catch((err) => {
+      jfail(err);
       done();
     })
   });
@@ -137,7 +166,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("containedIn object array queries", function(done) {
+  it("containedIn object array queries", function(done) {
     var messageList = [];
     for (var i = 0; i < 4; ++i) {
       var message = new TestObject({});
@@ -162,17 +191,17 @@ describe('Parse.Query testing', () => {
           done();
         },
         error: function(e) {
-          fail(e);
+          jfail(e);
           done();
         }
       });
     }, (e) => {
-      fail(e);
+      jfail(e);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])("containsAll number array queries", function(done) {
+  it("containsAll number array queries", function(done) {
     var NumberSet = Parse.Object.extend({ className: "NumberSet" });
 
     var objectsList = [];
@@ -188,14 +217,17 @@ describe('Parse.Query testing', () => {
           done();
         },
         error: function(err) {
-          fail(err);
+          jfail(err);
           done();
         },
       });
+    }).catch((err) => {
+      jfail(err);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])("containsAll string array queries", function(done) {
+  it("containsAll string array queries", function(done) {
     var StringSet = Parse.Object.extend({ className: "StringSet" });
 
     var objectsList = [];
@@ -211,10 +243,13 @@ describe('Parse.Query testing', () => {
           done();
         }
       });
+    }).catch((err) => {
+      jfail(err);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])("containsAll date array queries", function(done) {
+  it("containsAll date array queries", function(done) {
     var DateSet = Parse.Object.extend({ className: "DateSet" });
 
     function parseDate(iso8601) {
@@ -247,7 +282,7 @@ describe('Parse.Query testing', () => {
     var objectsList = [];
     objectsList.push(new DateSet({
       "dates" : makeDates(["2013-02-01", "2013-02-02", "2013-02-03",
-                           "2013-02-04"])
+        "2013-02-04"])
     }));
     objectsList.push(new DateSet({
       "dates" : makeDates(["2013-02-01", "2013-02-03", "2013-02-04"])
@@ -263,14 +298,14 @@ describe('Parse.Query testing', () => {
           done();
         },
         error: function(e) {
-          fail(e);
+          jfail(e);
           done();
         },
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("containsAll object array queries", function(done) {
+  it("containsAll object array queries", function(done) {
 
     var MessageSet = Parse.Object.extend({ className: "MessageSet" });
 
@@ -312,58 +347,58 @@ describe('Parse.Query testing', () => {
     className: "BoxedNumber"
   });
 
-  it_exclude_dbs(['postgres'])("equalTo queries", function(done) {
+  it("equalTo queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
                          function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.equalTo('number', 3);
-      query.find({
-        success: function(results) {
-          equal(results.length, 1);
-          done();
-        }
-      });
-    });
+                           var query = new Parse.Query(BoxedNumber);
+                           query.equalTo('number', 3);
+                           query.find({
+                             success: function(results) {
+                               equal(results.length, 1);
+                               done();
+                             }
+                           });
+                         });
   });
 
-  it_exclude_dbs(['postgres'])("equalTo undefined", function(done) {
+  it("equalTo undefined", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
                          function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.equalTo('number', undefined);
-      query.find(expectSuccess({
-        success: function(results) {
-          equal(results.length, 0);
-          done();
-        }
-      }));
-    });
+                           var query = new Parse.Query(BoxedNumber);
+                           query.equalTo('number', undefined);
+                           query.find(expectSuccess({
+                             success: function(results) {
+                               equal(results.length, 0);
+                               done();
+                             }
+                           }));
+                         });
   });
 
-  it_exclude_dbs(['postgres'])("lessThan queries", function(done) {
+  it("lessThan queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
                          function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.lessThan('number', 7);
-      query.find({
-        success: function(results) {
-          equal(results.length, 7);
-          done();
-        }
-      });
-    });
+                           var query = new Parse.Query(BoxedNumber);
+                           query.lessThan('number', 7);
+                           query.find({
+                             success: function(results) {
+                               equal(results.length, 7);
+                               done();
+                             }
+                           });
+                         });
   });
 
-  it_exclude_dbs(['postgres'])("lessThanOrEqualTo queries", function(done) {
+  it("lessThanOrEqualTo queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -381,7 +416,7 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("greaterThan queries", function(done) {
+  it("greaterThan queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -399,7 +434,7 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("greaterThanOrEqualTo queries", function(done) {
+  it("greaterThanOrEqualTo queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -417,42 +452,42 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("lessThanOrEqualTo greaterThanOrEqualTo queries", function(done) {
+  it("lessThanOrEqualTo greaterThanOrEqualTo queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.lessThanOrEqualTo('number', 7);
-      query.greaterThanOrEqualTo('number', 7);
-      query.find({
-        success: function(results) {
-          equal(results.length, 1);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.lessThanOrEqualTo('number', 7);
+        query.greaterThanOrEqualTo('number', 7);
+        query.find({
+          success: function(results) {
+            equal(results.length, 1);
+            done();
+          }
+        });
       });
-    });
   });
 
-  it_exclude_dbs(['postgres'])("lessThan greaterThan queries", function(done) {
+  it("lessThan greaterThan queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.lessThan('number', 9);
-      query.greaterThan('number', 3);
-      query.find({
-        success: function(results) {
-          equal(results.length, 5);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.lessThan('number', 9);
+        query.greaterThan('number', 3);
+        query.find({
+          success: function(results) {
+            equal(results.length, 5);
+            done();
+          }
+        });
       });
-    });
   });
 
   it("notEqualTo queries", function(done) {
@@ -462,55 +497,55 @@ describe('Parse.Query testing', () => {
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.notEqualTo('number', 5);
-      query.find({
-        success: function(results) {
-          equal(results.length, 9);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.notEqualTo('number', 5);
+        query.find({
+          success: function(results) {
+            equal(results.length, 9);
+            done();
+          }
+        });
       });
-    });
   });
 
-  it_exclude_dbs(['postgres'])("containedIn queries", function(done) {
+  it("containedIn queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.containedIn('number', [3,5,7,9,11]);
-      query.find({
-        success: function(results) {
-          equal(results.length, 4);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.containedIn('number', [3,5,7,9,11]);
+        query.find({
+          success: function(results) {
+            equal(results.length, 4);
+            done();
+          }
+        });
       });
-    });
   });
 
-  it_exclude_dbs(['postgres'])("notContainedIn queries", function(done) {
+  it("notContainedIn queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.notContainedIn('number', [3,5,7,9,11]);
-      query.find({
-        success: function(results) {
-          equal(results.length, 6);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.notContainedIn('number', [3,5,7,9,11]);
+        query.find({
+          success: function(results) {
+            equal(results.length, 6);
+            done();
+          }
+        });
       });
-    });
   });
 
 
-  it_exclude_dbs(['postgres'])("objectId containedIn queries", function(done) {
+  it("objectId containedIn queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -519,8 +554,8 @@ describe('Parse.Query testing', () => {
       function(list) {
         var query = new Parse.Query(BoxedNumber);
         query.containedIn('objectId',
-                          [list[2].id, list[3].id, list[0].id,
-                           "NONSENSE"]);
+          [list[2].id, list[3].id, list[0].id,
+            "NONSENSE"]);
         query.ascending('number');
         query.find({
           success: function(results) {
@@ -537,7 +572,7 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("objectId equalTo queries", function(done) {
+  it("objectId equalTo queries", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -560,22 +595,22 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("find no elements", function(done) {
+  it("find no elements", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.equalTo('number', 17);
-      query.find(expectSuccess({
-        success: function(results) {
-          equal(results.length, 0);
-          done();
-        }
-      }));
-    });
+        var query = new Parse.Query(BoxedNumber);
+        query.equalTo('number', 17);
+        query.find(expectSuccess({
+          success: function(results) {
+            equal(results.length, 0);
+            done();
+          }
+        }));
+      });
   });
 
   it("find with error", function(done) {
@@ -616,10 +651,9 @@ describe('Parse.Query testing', () => {
   it("get error", function(done) {
     Parse.Object.saveAll([new TestObject({foo: 'bar'})], function(items) {
       ok(items[0]);
-      var objectId = items[0].id;
       var query = new Parse.Query(TestObject);
       query.get("InvalidObjectID", {
-        success: function(result) {
+        success: function() {
           ok(false, "The get should have failed.");
           done();
         },
@@ -659,16 +693,16 @@ describe('Parse.Query testing', () => {
 
   it("first with two results", function(done) {
     Parse.Object.saveAll([new TestObject({foo: 'bar'}),
-                          new TestObject({foo: 'bar'})], function() {
-                            var query = new Parse.Query(TestObject);
-                            query.equalTo('foo', 'bar');
-                            query.first({
-                              success: function(result) {
-                                equal(result.get('foo'), 'bar');
-                                done();
-                              }
-                            });
-                          });
+      new TestObject({foo: 'bar'})], function() {
+      var query = new Parse.Query(TestObject);
+      query.equalTo('foo', 'bar');
+      query.first({
+        success: function(result) {
+          equal(result.get('foo'), 'bar');
+          done();
+        }
+      });
+    });
   });
 
   it("first with error", function(done) {
@@ -681,7 +715,7 @@ describe('Parse.Query testing', () => {
     className: "Container"
   });
 
-  it_exclude_dbs(['postgres'])("notEqualTo object", function(done) {
+  it("notEqualTo object", function(done) {
     var item1 = new TestObject();
     var item2 = new TestObject();
     var container1 = new Container({item: item1});
@@ -698,7 +732,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("skip", function(done) {
+  it("skip", function(done) {
     Parse.Object.saveAll([new TestObject(), new TestObject()], function() {
       var query = new Parse.Query(TestObject);
       query.skip(1);
@@ -717,7 +751,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("skip doesn't affect count", function(done) {
+  it("skip doesn't affect count", function(done) {
     Parse.Object.saveAll([new TestObject(), new TestObject()], function() {
       var query = new Parse.Query(TestObject);
       query.count({
@@ -741,29 +775,29 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("count", function(done) {
+  it("count", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
     Parse.Object.saveAll(
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(makeBoxedNumber),
       function() {
-      var query = new Parse.Query(BoxedNumber);
-      query.greaterThan("number", 1);
-      query.count({
-        success: function(count) {
-          equal(count, 8);
-          done();
-        }
+        var query = new Parse.Query(BoxedNumber);
+        query.greaterThan("number", 1);
+        query.count({
+          success: function(count) {
+            equal(count, 8);
+            done();
+          }
+        });
       });
-    });
   });
 
-  it_exclude_dbs(['postgres'])("order by ascending number", function(done) {
+  it("order by ascending number", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
-    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber), function(list) {
+    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber), function() {
       var query = new Parse.Query(BoxedNumber);
       query.ascending("number");
       query.find(expectSuccess({
@@ -778,11 +812,11 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number", function(done) {
+  it("order by descending number", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
-    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber), function(list) {
+    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber)).then(function() {
       var query = new Parse.Query(BoxedNumber);
       query.descending("number");
       query.find(expectSuccess({
@@ -797,14 +831,14 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("order by ascending number then descending string", function(done) {
+  it("order by ascending number then descending string", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
     Parse.Object.saveAll(
-      [3, 1, 3, 2].map(makeBoxedNumber),
-      function(list) {
+      [3, 1, 3, 2].map(makeBoxedNumber)).then(
+      function() {
         var query = new Parse.Query(BoxedNumber);
         query.ascending("number").addDescending("string");
         query.find(expectSuccess({
@@ -824,39 +858,42 @@ describe('Parse.Query testing', () => {
       });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number then ascending string", function(done) {
+  it("order by descending number then ascending string", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
-    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber),
-                         function(list) {
-                           var query = new Parse.Query(BoxedNumber);
-                           query.descending("number").addAscending("string");
-                           query.find(expectSuccess({
-                             success: function(results) {
-                               equal(results.length, 4);
-                               equal(results[0].get("number"), 3);
-                               equal(results[0].get("string"), "a");
-                               equal(results[1].get("number"), 3);
-                               equal(results[1].get("string"), "c");
-                               equal(results[2].get("number"), 2);
-                               equal(results[2].get("string"), "d");
-                               equal(results[3].get("number"), 1);
-                               equal(results[3].get("string"), "b");
-                               done();
-                             }
-                           }));
-                         });
+
+    const objects = [3, 1, 3, 2].map(makeBoxedNumber);
+    Parse.Object.saveAll(objects)
+    .then(() => {
+      var query = new Parse.Query(BoxedNumber);
+      query.descending("number").addAscending("string");
+      return query.find();
+    }).then((results) => {
+      equal(results.length, 4);
+      equal(results[0].get("number"), 3);
+      equal(results[0].get("string"), "a");
+      equal(results[1].get("number"), 3);
+      equal(results[1].get("string"), "c");
+      equal(results[2].get("number"), 2);
+      equal(results[2].get("string"), "d");
+      equal(results[3].get("number"), 1);
+      equal(results[3].get("string"), "b");
+      done();
+    }, (err) => {
+      jfail(err);
+      done();
+    });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number and string", function(done) {
+  it("order by descending number and string", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
-    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber),
-                         function(list) {
+    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber)).then(
+                         function() {
                            var query = new Parse.Query(BoxedNumber);
                            query.descending("number,string");
                            query.find(expectSuccess({
@@ -876,13 +913,13 @@ describe('Parse.Query testing', () => {
                          });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number and string, with space", function(done) {
+  it("order by descending number and string, with space", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
-    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber),
-                         function(list) {
+    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber)).then(
+                         function() {
                            var query = new Parse.Query(BoxedNumber);
                            query.descending("number, string");
                            query.find(expectSuccess({
@@ -899,16 +936,19 @@ describe('Parse.Query testing', () => {
                                done();
                              }
                            }));
-                         });
+                         }, (err) => {
+      jfail(err);
+      done();
+    });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number and string, with array arg", function(done) {
+  it("order by descending number and string, with array arg", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
-    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber),
-                         function(list) {
+    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber)).then(
+                         function() {
                            var query = new Parse.Query(BoxedNumber);
                            query.descending(["number", "string"]);
                            query.find(expectSuccess({
@@ -928,13 +968,13 @@ describe('Parse.Query testing', () => {
                          });
   });
 
-  it_exclude_dbs(['postgres'])("order by descending number and string, with multiple args", function(done) {
+  it("order by descending number and string, with multiple args", function(done) {
     var strings = ["a", "b", "c", "d"];
     var makeBoxedNumber = function(num, i) {
       return new BoxedNumber({ number: num, string: strings[i] });
     };
-    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber),
-                         function(list) {
+    Parse.Object.saveAll([3, 1, 3, 2].map(makeBoxedNumber)).then(
+                         function() {
                            var query = new Parse.Query(BoxedNumber);
                            query.descending("number", "string");
                            query.find(expectSuccess({
@@ -954,11 +994,11 @@ describe('Parse.Query testing', () => {
                          });
   });
 
-  it_exclude_dbs(['postgres'])("can't order by password", function(done) {
+  it("can't order by password", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
-    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber), function(list) {
+    Parse.Object.saveAll([3, 1, 2].map(makeBoxedNumber), function() {
       var query = new Parse.Query(BoxedNumber);
       query.ascending("_password");
       query.find(expectError(Parse.Error.INVALID_KEY_NAME, done));
@@ -986,14 +1026,14 @@ describe('Parse.Query testing', () => {
           done();
         },
         error: function(e) {
-          fail(e);
+          jfail(e);
           done();
         },
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("order by createdAt", function(done) {
+  it("order by createdAt", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -1017,7 +1057,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("order by _updated_at", function(done) {
+  it("order by _updated_at", function(done) {
     var makeBoxedNumber = function(i) {
       return new BoxedNumber({ number: i });
     };
@@ -1029,7 +1069,7 @@ describe('Parse.Query testing', () => {
     }).then(function() {
       numbers[1].set("number", 4);
       numbers[1].save(null, {
-        success: function(model) {
+        success: function() {
           var query = new Parse.Query(BoxedNumber);
           query.ascending("_updated_at");
           query.find({
@@ -1046,7 +1086,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("order by updatedAt", function(done) {
+  it("order by updatedAt", function(done) {
     var makeBoxedNumber = function(i) { return new BoxedNumber({ number: i }); };
     var numbers = [3, 1, 2].map(makeBoxedNumber);
     numbers[0].save().then(() => {
@@ -1056,7 +1096,7 @@ describe('Parse.Query testing', () => {
     }).then(function() {
       numbers[1].set("number", 4);
       numbers[1].save(null, {
-        success: function(model) {
+        success: function() {
           var query = new Parse.Query(BoxedNumber);
           query.descending("_updated_at");
           query.find({
@@ -1097,7 +1137,7 @@ describe('Parse.Query testing', () => {
     });
   }
 
-  it_exclude_dbs(['postgres'])("time equality", function(done) {
+  it("time equality", function(done) {
     makeThreeTimeObjects().then(function(list) {
       var query = new Parse.Query(TestObject);
       query.equalTo("time", list[1].get("time"));
@@ -1111,7 +1151,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("time lessThan", function(done) {
+  it("time lessThan", function(done) {
     makeThreeTimeObjects().then(function(list) {
       var query = new Parse.Query(TestObject);
       query.lessThan("time", list[2].get("time"));
@@ -1125,7 +1165,7 @@ describe('Parse.Query testing', () => {
   });
 
   // This test requires Date objects to be consistently stored as a Date.
-  it_exclude_dbs(['postgres'])("time createdAt", function(done) {
+  it("time createdAt", function(done) {
     makeThreeTimeObjects().then(function(list) {
       var query = new Parse.Query(TestObject);
       query.greaterThanOrEqualTo("createdAt", list[0].createdAt);
@@ -1138,7 +1178,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("matches string", function(done) {
+  it("matches string", function(done) {
     var thing1 = new TestObject();
     thing1.set("myString", "football");
     var thing2 = new TestObject();
@@ -1155,7 +1195,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("matches regex", function(done) {
+  it("matches regex", function(done) {
     var thing1 = new TestObject();
     thing1.set("myString", "football");
     var thing2 = new TestObject();
@@ -1172,27 +1212,27 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("case insensitive regex success", function(done) {
+  it("case insensitive regex success", function(done) {
     var thing = new TestObject();
     thing.set("myString", "football");
     Parse.Object.saveAll([thing], function() {
       var query = new Parse.Query(TestObject);
       query.matches("myString", "FootBall", "i");
       query.find({
-        success: function(results) {
+        success: function() {
           done();
         }
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("regexes with invalid options fail", function(done) {
+  it("regexes with invalid options fail", function(done) {
     var query = new Parse.Query(TestObject);
     query.matches("myString", "FootBall", "some invalid option");
     query.find(expectError(Parse.Error.INVALID_QUERY, done));
   });
 
-  it_exclude_dbs(['postgres'])("Use a regex that requires all modifiers", function(done) {
+  it("Use a regex that requires all modifiers", function(done) {
     var thing = new TestObject();
     thing.set("myString", "PArSe\nCom");
     Parse.Object.saveAll([thing], function() {
@@ -1207,12 +1247,16 @@ describe('Parse.Query testing', () => {
         success: function(results) {
           equal(results.length, 1);
           done();
+        },
+        error: function(err) {
+          jfail(err);
+          done();
         }
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("Regular expression constructor includes modifiers inline", function(done) {
+  it("Regular expression constructor includes modifiers inline", function(done) {
     var thing = new TestObject();
     thing.set("myString", "\n\nbuffer\n\nparse.COM");
     Parse.Object.saveAll([thing], function() {
@@ -1230,55 +1274,55 @@ describe('Parse.Query testing', () => {
   var someAscii = "\\E' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTU" +
     "VWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'";
 
-  it_exclude_dbs(['postgres'])("contains", function(done) {
+  it("contains", function(done) {
     Parse.Object.saveAll([new TestObject({myString: "zax" + someAscii + "qub"}),
-                          new TestObject({myString: "start" + someAscii}),
-                          new TestObject({myString: someAscii + "end"}),
-                          new TestObject({myString: someAscii})], function() {
-                            var query = new Parse.Query(TestObject);
-                            query.contains("myString", someAscii);
-                            query.find({
-                              success: function(results, foo) {
-                                equal(results.length, 4);
-                                done();
-                              }
-                            });
-                          });
+      new TestObject({myString: "start" + someAscii}),
+      new TestObject({myString: someAscii + "end"}),
+      new TestObject({myString: someAscii})], function() {
+      var query = new Parse.Query(TestObject);
+      query.contains("myString", someAscii);
+      query.find({
+        success: function(results) {
+          equal(results.length, 4);
+          done();
+        }
+      });
+    });
   });
 
-  it_exclude_dbs(['postgres'])("startsWith", function(done) {
+  it("startsWith", function(done) {
     Parse.Object.saveAll([new TestObject({myString: "zax" + someAscii + "qub"}),
-                          new TestObject({myString: "start" + someAscii}),
-                          new TestObject({myString: someAscii + "end"}),
-                          new TestObject({myString: someAscii})], function() {
-                            var query = new Parse.Query(TestObject);
-                            query.startsWith("myString", someAscii);
-                            query.find({
-                              success: function(results, foo) {
-                                equal(results.length, 2);
-                                done();
-                              }
-                            });
-                          });
+      new TestObject({myString: "start" + someAscii}),
+      new TestObject({myString: someAscii + "end"}),
+      new TestObject({myString: someAscii})], function() {
+      var query = new Parse.Query(TestObject);
+      query.startsWith("myString", someAscii);
+      query.find({
+        success: function(results) {
+          equal(results.length, 2);
+          done();
+        }
+      });
+    });
   });
 
-  it_exclude_dbs(['postgres'])("endsWith", function(done) {
+  it("endsWith", function(done) {
     Parse.Object.saveAll([new TestObject({myString: "zax" + someAscii + "qub"}),
-                          new TestObject({myString: "start" + someAscii}),
-                          new TestObject({myString: someAscii + "end"}),
-                          new TestObject({myString: someAscii})], function() {
-                            var query = new Parse.Query(TestObject);
-                            query.startsWith("myString", someAscii);
-                            query.find({
-                              success: function(results, foo) {
-                                equal(results.length, 2);
-                                done();
-                              }
-                            });
-                          });
+      new TestObject({myString: "start" + someAscii}),
+      new TestObject({myString: someAscii + "end"}),
+      new TestObject({myString: someAscii})], function() {
+      var query = new Parse.Query(TestObject);
+      query.endsWith("myString", someAscii);
+      query.find({
+        success: function(results) {
+          equal(results.length, 2);
+          done();
+        }
+      });
+    });
   });
 
-  it_exclude_dbs(['postgres'])("exists", function(done) {
+  it("exists", function(done) {
     var objects = [];
     for (var i of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
       var item = new TestObject();
@@ -1297,14 +1341,14 @@ describe('Parse.Query testing', () => {
           equal(results.length, 5);
           for (var result of results) {
             ok(result.get("x"));
-          };
+          }
           done();
         }
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("doesNotExist", function(done) {
+  it("doesNotExist", function(done) {
     var objects = [];
     for (var i of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
       var item = new TestObject();
@@ -1314,7 +1358,7 @@ describe('Parse.Query testing', () => {
         item.set('y', i + 1);
       }
       objects.push(item);
-    };
+    }
     Parse.Object.saveAll(objects, function() {
       var query = new Parse.Query(TestObject);
       query.doesNotExist("x");
@@ -1330,7 +1374,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("exists relation", function(done) {
+  it("exists relation", function(done) {
     var objects = [];
     for (var i of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
       var container = new Container();
@@ -1343,8 +1387,8 @@ describe('Parse.Query testing', () => {
         container.set('y', i);
       }
       objects.push(container);
-    };
-    Parse.Object.saveAll(objects, function() {
+    }
+    Parse.Object.saveAll(objects).then(function() {
       var query = new Parse.Query(Container);
       query.exists("x");
       query.find({
@@ -1352,14 +1396,14 @@ describe('Parse.Query testing', () => {
           equal(results.length, 5);
           for (var result of results) {
             ok(result.get("x"));
-          };
+          }
           done();
         }
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("doesNotExist relation", function(done) {
+  it("doesNotExist relation", function(done) {
     var objects = [];
     for (var i of [0, 1, 2, 3, 4, 5, 6, 7]) {
       var container = new Container();
@@ -1381,14 +1425,14 @@ describe('Parse.Query testing', () => {
           equal(results.length, 4);
           for (var result of results) {
             ok(result.get("y"));
-          };
+          }
           done();
         }
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])("don't include by default", function(done) {
+  it("don't include by default", function(done) {
     var child = new TestObject();
     var parent = new Container();
     child.set("foo", "bar");
@@ -1522,94 +1566,95 @@ describe('Parse.Query testing', () => {
   });
 
   it('properly includes array', (done) => {
-    let objects = [];
+    const objects = [];
     let total = 0;
     while(objects.length != 5) {
-      let object = new Parse.Object('AnObject');
+      const object = new Parse.Object('AnObject');
       object.set('key', objects.length);
       total += objects.length;
       objects.push(object);
     }
     Parse.Object.saveAll(objects).then(() => {
-      let object = new Parse.Object("AContainer");
+      const object = new Parse.Object("AContainer");
       object.set('objects', objects);
       return object.save();
-    }).then(() => {
-      let query = new Parse.Query('AContainer');
+    }).then(() => {
+      const query = new Parse.Query('AContainer');
       query.include('objects');
       return query.find()
     }).then((results) => {
       expect(results.length).toBe(1);
-      let res = results[0];
-      let objects = res.get('objects');
+      const res = results[0];
+      const objects = res.get('objects');
       expect(objects.length).toBe(5);
       objects.forEach((object) => {
         total -= object.get('key');
       });
       expect(total).toBe(0);
       done()
-    }, () => {
+    }, () => {
       fail('should not fail');
       done();
     })
   });
 
   it('properly includes array of mixed objects', (done) => {
-    let objects = [];
+    const objects = [];
     let total = 0;
     while(objects.length != 5) {
-      let object = new Parse.Object('AnObject');
+      const object = new Parse.Object('AnObject');
       object.set('key', objects.length);
       total += objects.length;
       objects.push(object);
     }
     while(objects.length != 10) {
-      let object = new Parse.Object('AnotherObject');
+      const object = new Parse.Object('AnotherObject');
       object.set('key', objects.length);
       total += objects.length;
       objects.push(object);
     }
     Parse.Object.saveAll(objects).then(() => {
-      let object = new Parse.Object("AContainer");
+      const object = new Parse.Object("AContainer");
       object.set('objects', objects);
       return object.save();
-    }).then(() => {
-      let query = new Parse.Query('AContainer');
+    }).then(() => {
+      const query = new Parse.Query('AContainer');
       query.include('objects');
       return query.find()
     }).then((results) => {
       expect(results.length).toBe(1);
-      let res = results[0];
-      let objects = res.get('objects');
+      const res = results[0];
+      const objects = res.get('objects');
       expect(objects.length).toBe(10);
       objects.forEach((object) => {
         total -= object.get('key');
       });
       expect(total).toBe(0);
       done()
-    }, (err) => {
+    }, (e) => {
       fail('should not fail');
+      fail(JSON.stringify(e));
       done();
     })
   });
 
   it('properly nested array of mixed objects with bad ids', (done) => {
-    let objects = [];
+    const objects = [];
     let total = 0;
     while(objects.length != 5) {
-      let object = new Parse.Object('AnObject');
+      const object = new Parse.Object('AnObject');
       object.set('key', objects.length);
       objects.push(object);
     }
     while(objects.length != 10) {
-      let object = new Parse.Object('AnotherObject');
+      const object = new Parse.Object('AnotherObject');
       object.set('key', objects.length);
       objects.push(object);
     }
     Parse.Object.saveAll(objects).then(() => {
-      let object = new Parse.Object("AContainer");
-      for (var i=0; i<objects.length; i++) {
-        if (i%2 == 0) {
+      const object = new Parse.Object("AContainer");
+      for (var i = 0; i < objects.length; i++) {
+        if (i % 2 == 0) {
           objects[i].id = 'randomThing'
         } else {
           total += objects[i].get('key');
@@ -1617,51 +1662,51 @@ describe('Parse.Query testing', () => {
       }
       object.set('objects', objects);
       return object.save();
-    }).then(() => {
-      let query = new Parse.Query('AContainer');
+    }).then(() => {
+      const query = new Parse.Query('AContainer');
       query.include('objects');
       return query.find()
     }).then((results) => {
       expect(results.length).toBe(1);
-      let res = results[0];
-      let objects = res.get('objects');
+      const res = results[0];
+      const objects = res.get('objects');
       expect(objects.length).toBe(5);
       objects.forEach((object) => {
         total -= object.get('key');
       });
       expect(total).toBe(0);
       done()
-    }, (err) => {
-      console.error(err);
+    }, (err) => {
+      jfail(err);
       fail('should not fail');
       done();
     })
   });
 
-  it_exclude_dbs(['postgres'])('properly fetches nested pointers', (done) =>  {
-    let color = new Parse.Object('Color');
+  it('properly fetches nested pointers', (done) =>  {
+    const color = new Parse.Object('Color');
     color.set('hex','#133733');
-    let circle = new Parse.Object('Circle');
+    const circle = new Parse.Object('Circle');
     circle.set('radius', 1337);
 
-    Parse.Object.saveAll([color, circle]).then(() => {
+    Parse.Object.saveAll([color, circle]).then(() => {
       circle.set('color', color);
-      let badCircle = new Parse.Object('Circle');
+      const badCircle = new Parse.Object('Circle');
       badCircle.id = 'badId';
-      let complexFigure = new Parse.Object('ComplexFigure');
+      const complexFigure = new Parse.Object('ComplexFigure');
       complexFigure.set('consistsOf', [circle, badCircle]);
       return complexFigure.save();
-    }).then(() => {
-      let q = new Parse.Query('ComplexFigure');
+    }).then(() => {
+      const q = new Parse.Query('ComplexFigure');
       q.include('consistsOf.color');
       return q.find()
-    }).then((results) => {
+    }).then((results) => {
       expect(results.length).toBe(1);
-      let figure = results[0];
+      const figure = results[0];
       expect(figure.get('consistsOf').length).toBe(1);
       expect(figure.get('consistsOf')[0].get('color').get('hex')).toBe('#133733');
       done();
-    }, (err) => {
+    }, () => {
       fail('should not fail');
       done();
     })
@@ -1703,7 +1748,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("matches query", function(done) {
+  it("matches query", function(done) {
     var ParentObject = Parse.Object.extend("ParentObject");
     var ChildObject = Parse.Object.extend("ChildObject");
     var objects = [];
@@ -1742,7 +1787,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("select query", function(done) {
+  it("select query", function(done) {
     var RestaurantObject = Parse.Object.extend("Restaurant");
     var PersonObject = Parse.Object.extend("Person");
     var objects = [
@@ -1768,7 +1813,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('$select inside $or', (done) => {
+  it('$select inside $or', (done) => {
     var Restaurant = Parse.Object.extend('Restaurant');
     var Person = Parse.Object.extend('Person');
     var objects = [
@@ -1792,12 +1837,12 @@ describe('Parse.Query testing', () => {
       expect(results.length).toEqual(2);
       done();
     }, (error) => {
-      fail(error);
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])("dontSelect query", function(done) {
+  it("dontSelect query", function(done) {
     var RestaurantObject = Parse.Object.extend("Restaurant");
     var PersonObject = Parse.Object.extend("Person");
     var objects = [
@@ -1823,7 +1868,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("dontSelect query without conditions", function(done) {
+  it("dontSelect query without conditions", function(done) {
     const RestaurantObject = Parse.Object.extend("Restaurant");
     const PersonObject = Parse.Object.extend("Person");
     const objects = [
@@ -1852,7 +1897,7 @@ describe('Parse.Query testing', () => {
     obj.set("length", 5);
     equal(obj.get("length"), 5);
     obj.save(null, {
-      success: function(obj) {
+      success: function() {
         var query = new Parse.Query(TestObject);
         query.find({
           success: function(results) {
@@ -1910,7 +1955,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("or queries", function(done) {
+  it("or queries", function(done) {
     var objects = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function(x) {
       var object = new Parse.Object('BoxedNumber');
       object.set('x', x);
@@ -1937,7 +1982,7 @@ describe('Parse.Query testing', () => {
   });
 
   // This relies on matchesQuery aka the $inQuery operator
-  it_exclude_dbs(['postgres'])("or complex queries", function(done) {
+  it("or complex queries", function(done) {
     var objects = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function(x) {
       var child = new Parse.Object('Child');
       child.set('x', x);
@@ -1966,7 +2011,7 @@ describe('Parse.Query testing', () => {
     }));
   });
 
-  it_exclude_dbs(['postgres'])("async methods", function(done) {
+  it("async methods", function(done) {
     var saves = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function(x) {
       var obj = new Parse.Object("TestObject");
       obj.set("x", x + 1);
@@ -2003,7 +2048,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("query.each", function(done) {
+  it("query.each", function(done) {
     var TOTAL = 50;
     var COUNT = 25;
 
@@ -2027,7 +2072,7 @@ describe('Parse.Query testing', () => {
           equal(seen.length, COUNT);
           for (var i = 0; i < COUNT; i++) {
             equal(seen[i], 1, "Should have seen object number " + i);
-          };
+          }
           done();
         },
         error: function(error) {
@@ -2038,7 +2083,7 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("query.each async", function(done) {
+  it("query.each async", function(done) {
     var TOTAL = 50;
     var COUNT = 25;
 
@@ -2070,7 +2115,7 @@ describe('Parse.Query testing', () => {
       equal(seen.length, COUNT);
       for (var i = 0; i < COUNT; i++) {
         equal(seen[i], 1, "Should have seen object number " + i);
-      };
+      }
       done();
     });
   });
@@ -2098,7 +2143,7 @@ describe('Parse.Query testing', () => {
     }).then(function() {
       ok(false, "This should have failed.");
       done();
-    }, function(error) {
+    }, function() {
       done();
     });
   });
@@ -2126,7 +2171,7 @@ describe('Parse.Query testing', () => {
     }).then(function() {
       ok(false, "This should have failed.");
       done();
-    }, function(error) {
+    }, function() {
       done();
     });
   });
@@ -2156,7 +2201,7 @@ describe('Parse.Query testing', () => {
     }).then(function() {
       ok(false, "This should have failed.");
       done();
-    }, function(error) {
+    }, function() {
       done();
     });
   });
@@ -2239,13 +2284,13 @@ describe('Parse.Query testing', () => {
       }).then(function() {
         done();
       }, function(err) {
-        ok(false, JSON.stringify(err));
+        jfail(err);
         done();
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])('notEqual with array of pointers', (done) => {
+  it('notEqual with array of pointers', (done) => {
     var children = [];
     var parents = [];
     var promises = [];
@@ -2275,6 +2320,7 @@ describe('Parse.Query testing', () => {
     }).catch((error) => { console.log(error); });
   });
 
+  // PG don't support creating a null column
   it_exclude_dbs(['postgres'])('querying for null value', (done) => {
     var obj = new Parse.Object('TestObject');
     obj.set('aNull', null);
@@ -2289,8 +2335,7 @@ describe('Parse.Query testing', () => {
     })
   });
 
-  it_exclude_dbs(['postgres'])('query within dictionary', (done) => {
-    var objs = [];
+  it('query within dictionary', (done) => {
     var promises = [];
     for (var i = 0; i < 2; i++) {
       var proc = (iter) => {
@@ -2312,33 +2357,33 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('supports include on the wrong key type (#2262)', function(done) {
-    let childObject = new Parse.Object('TestChildObject');
+  it('supports include on the wrong key type (#2262)', function(done) {
+    const childObject = new Parse.Object('TestChildObject');
     childObject.set('hello', 'world');
-    childObject.save().then(() => {
-      let obj = new Parse.Object('TestObject');
+    childObject.save().then(() => {
+      const obj = new Parse.Object('TestObject');
       obj.set('foo', 'bar');
       obj.set('child', childObject);
       return obj.save();
-    }).then(() => {
-      let q = new Parse.Query('TestObject');
+    }).then(() => {
+      const q = new Parse.Query('TestObject');
       q.include('child');
       q.include('child.parent');
       q.include('createdAt');
       q.include('createdAt.createdAt');
       return q.find();
-    }).then((objs) => {
+    }).then((objs) => {
       expect(objs.length).toBe(1);
       expect(objs[0].get('child').get('hello')).toEqual('world');
       expect(objs[0].createdAt instanceof Date).toBe(true);
       done();
-    }, (err) => {
+    }, () => {
       fail('should not fail');
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('query match on array with single object', (done) => {
+  it('query match on array with single object', (done) => {
     var target = {__type: 'Pointer', className: 'TestObject', objectId: 'abc123'};
     var obj = new Parse.Object('TestObject');
     obj.set('someObjs', [target]);
@@ -2354,10 +2399,10 @@ describe('Parse.Query testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('query match on array with multiple objects', (done) => {
+  it('query match on array with multiple objects', (done) => {
     var target1 = {__type: 'Pointer', className: 'TestObject', objectId: 'abc'};
     var target2 = {__type: 'Pointer', className: 'TestObject', objectId: '123'};
-    var obj= new Parse.Object('TestObject');
+    var obj = new Parse.Object('TestObject');
     obj.set('someObjs', [target1, target2]);
     obj.save().then(() => {
       var query = new Parse.Query('TestObject');
@@ -2372,26 +2417,26 @@ describe('Parse.Query testing', () => {
   });
 
   // #371
-  it_exclude_dbs(['postgres'])('should properly interpret a query v1', (done) => {
+  it('should properly interpret a query v1', (done) => {
     var query = new Parse.Query("C1");
     var auxQuery = new Parse.Query("C1");
     query.matchesKeyInQuery("A1", "A2", auxQuery);
     query.include("A3");
     query.include("A2");
-    query.find().then((result) => {
+    query.find().then(() => {
       done();
     }, (err) => {
-      console.error(err);
+      jfail(err);
       fail("should not failt");
       done();
     })
   });
 
-  it_exclude_dbs(['postgres'])('should properly interpret a query v2', (done) => {
+  it('should properly interpret a query v2', (done) => {
     var user = new Parse.User();
     user.set("username", "foo");
     user.set("password", "bar");
-    return user.save().then( (user) => {
+    return user.save().then((user) => {
       var objIdQuery = new Parse.Query("_User").equalTo("objectId", user.id);
       var blockedUserQuery = user.relation("blockedUsers").query();
 
@@ -2414,17 +2459,45 @@ describe('Parse.Query testing', () => {
       var query = new Parse.Query("_User");
       query.doesNotMatchQuery("objectId", orQuery);
       return query.find();
-    }).then((res) => {
-      done();
+    }).then(() => {
       done();
     }, (err) => {
-      console.error(err);
+      jfail(err);
       fail("should not fail");
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('should find objects with array of pointers', (done) => {
+  it("should match a key in an array (#3195)", function(done) {
+    var AuthorObject = Parse.Object.extend("Author");
+    var GroupObject = Parse.Object.extend("Group");
+    var PostObject = Parse.Object.extend("Post");
+
+    return new AuthorObject().save().then((user) => {
+      const post = new PostObject({
+        author: user
+      });
+
+      const group = new GroupObject({
+        members: [user],
+      });
+
+      return Parse.Promise.when(post.save(), group.save());
+    }).then((p) => {
+      return new Parse.Query(PostObject)
+        .matchesKeyInQuery("author", "members", new Parse.Query(GroupObject))
+        .find()
+        .then((r) => {
+          expect(r.length).toEqual(1);
+          if (r.length > 0) {
+            expect(r[0].id).toEqual(p.id);
+          }
+          done();
+        }, done.fail);
+    });
+  });
+
+  it('should find objects with array of pointers', (done) => {
     var objects = [];
     while(objects.length != 5) {
       var object = new Parse.Object('ContainedObject');
@@ -2432,66 +2505,68 @@ describe('Parse.Query testing', () => {
       objects.push(object);
     }
 
-    Parse.Object.saveAll(objects).then((objects) => {
+    Parse.Object.saveAll(objects).then((objects) => {
       var container = new Parse.Object('Container');
-      var pointers = objects.map((obj) => {
+      var pointers = objects.map((obj) => {
         return {
-           __type: 'Pointer',
-           className: 'ContainedObject',
-           objectId: obj.id
+          __type: 'Pointer',
+          className: 'ContainedObject',
+          objectId: obj.id
         }
       })
       container.set('objects', pointers);
-      let container2 = new Parse.Object('Container');
+      const container2 = new Parse.Object('Container');
       container2.set('objects', pointers.slice(2, 3));
       return Parse.Object.saveAll([container, container2]);
     }).then(() => {
-      let inQuery = new Parse.Query('ContainedObject');
+      const inQuery = new Parse.Query('ContainedObject');
       inQuery.greaterThanOrEqualTo('index', 1);
-      let query = new Parse.Query('Container');
+      const query = new Parse.Query('Container');
       query.matchesQuery('objects', inQuery);
       return query.find();
-    }).then((results) => {
+    }).then((results) => {
       if (results) {
         expect(results.length).toBe(2);
       }
       done();
-    }).fail((err) => {
-      console.error(err);
+    }).fail((err) => {
+      jfail(err);
       fail('should not fail');
       done();
     })
   })
 
-  it_exclude_dbs(['postgres'])('query with two OR subqueries (regression test #1259)', done => {
-    let relatedObject = new Parse.Object('Class2');
+  it('query with two OR subqueries (regression test #1259)', done => {
+    const relatedObject = new Parse.Object('Class2');
     relatedObject.save().then(relatedObject => {
-      let anObject = new Parse.Object('Class1');
-      let relation = anObject.relation('relation');
+      const anObject = new Parse.Object('Class1');
+      const relation = anObject.relation('relation');
       relation.add(relatedObject);
       return anObject.save();
     }).then(anObject => {
-      let q1 = anObject.relation('relation').query();
+      const q1 = anObject.relation('relation').query();
       q1.doesNotExist('nonExistantKey1');
-      let q2 = anObject.relation('relation').query();
+      const q2 = anObject.relation('relation').query();
       q2.doesNotExist('nonExistantKey2');
-      let orQuery = Parse.Query.or(q1, q2).find().then(results => {
+      Parse.Query.or(q1, q2).find().then(results => {
         expect(results.length).toEqual(1);
-        expect(results[0].objectId).toEqual(q1.objectId);
+        if (results.length == 1) {
+          expect(results[0].objectId).toEqual(q1.objectId);
+        }
         done();
       });
     });
   });
 
   it('objectId containedIn with multiple large array', done => {
-    let obj = new Parse.Object('MyClass');
+    const obj = new Parse.Object('MyClass');
     obj.save().then(obj => {
-      let longListOfStrings = [];
+      const longListOfStrings = [];
       for (let i = 0; i < 130; i++) {
         longListOfStrings.push(i.toString());
       }
       longListOfStrings.push(obj.id);
-      let q = new Parse.Query('MyClass');
+      const q = new Parse.Query('MyClass');
       q.containedIn('objectId', longListOfStrings);
       q.containedIn('objectId', longListOfStrings);
       return q.find();
@@ -2540,7 +2615,117 @@ describe('Parse.Query testing', () => {
     })
   });
 
-  it_exclude_dbs(['postgres'])('properly handles nested ors', function(done) {
+  it('select nested keys (issue #1567)', function(done) {
+    var Foobar = new Parse.Object('Foobar');
+    var BarBaz = new Parse.Object('Barbaz');
+    BarBaz.set('key', 'value');
+    BarBaz.set('otherKey', 'value');
+    BarBaz.save().then(() => {
+      Foobar.set('foo', 'bar');
+      Foobar.set('fizz', 'buzz');
+      Foobar.set('barBaz', BarBaz);
+      return Foobar.save();
+    }).then(function(savedFoobar){
+      var foobarQuery = new Parse.Query('Foobar');
+      foobarQuery.include('barBaz');
+      foobarQuery.select(['fizz', 'barBaz.key']);
+      foobarQuery.get(savedFoobar.id,{
+        success: function(foobarObj){
+          equal(foobarObj.get('fizz'), 'buzz');
+          equal(foobarObj.get('foo'), undefined);
+          if (foobarObj.has('barBaz')) {
+            equal(foobarObj.get('barBaz').get('key'), 'value');
+            equal(foobarObj.get('barBaz').get('otherKey'), undefined);
+          } else {
+            fail('barBaz should be set');
+          }
+          done();
+        }
+      });
+    });
+  });
+
+  it('select nested keys 2 level (issue #1567)', function(done) {
+    var Foobar = new Parse.Object('Foobar');
+    var BarBaz = new Parse.Object('Barbaz');
+    var Bazoo = new Parse.Object('Bazoo');
+
+    Bazoo.set('some', 'thing');
+    Bazoo.set('otherSome', 'value');
+    Bazoo.save().then(() => {
+      BarBaz.set('key', 'value');
+      BarBaz.set('otherKey', 'value');
+      BarBaz.set('bazoo', Bazoo);
+      return BarBaz.save();
+    }).then(() => {
+      Foobar.set('foo', 'bar');
+      Foobar.set('fizz', 'buzz');
+      Foobar.set('barBaz', BarBaz);
+      return Foobar.save();
+    }).then(function(savedFoobar){
+      var foobarQuery = new Parse.Query('Foobar');
+      foobarQuery.include('barBaz');
+      foobarQuery.include('barBaz.bazoo');
+      foobarQuery.select(['fizz', 'barBaz.key', 'barBaz.bazoo.some']);
+      foobarQuery.get(savedFoobar.id,{
+        success: function(foobarObj){
+          equal(foobarObj.get('fizz'), 'buzz');
+          equal(foobarObj.get('foo'), undefined);
+          if (foobarObj.has('barBaz')) {
+            equal(foobarObj.get('barBaz').get('key'), 'value');
+            equal(foobarObj.get('barBaz').get('otherKey'), undefined);
+            equal(foobarObj.get('barBaz').get('bazoo').get('some'), 'thing');
+            equal(foobarObj.get('barBaz').get('bazoo').get('otherSome'), undefined);
+          } else {
+            fail('barBaz should be set');
+          }
+          done();
+        }
+      });
+    });
+  });
+
+  it('select nested keys 2 level without include (issue #3185)', function(done) {
+    var Foobar = new Parse.Object('Foobar');
+    var BarBaz = new Parse.Object('Barbaz');
+    var Bazoo = new Parse.Object('Bazoo');
+
+    Bazoo.set('some', 'thing');
+    Bazoo.set('otherSome', 'value');
+    Bazoo.save().then(() => {
+      BarBaz.set('key', 'value');
+      BarBaz.set('otherKey', 'value');
+      BarBaz.set('bazoo', Bazoo);
+      return BarBaz.save();
+    }).then(() => {
+      Foobar.set('foo', 'bar');
+      Foobar.set('fizz', 'buzz');
+      Foobar.set('barBaz', BarBaz);
+      return Foobar.save();
+    }).then(function(savedFoobar){
+      var foobarQuery = new Parse.Query('Foobar');
+      foobarQuery.select(['fizz', 'barBaz.key', 'barBaz.bazoo.some']);
+      return foobarQuery.get(savedFoobar.id);
+    }).then((foobarObj) => {
+      equal(foobarObj.get('fizz'), 'buzz');
+      equal(foobarObj.get('foo'), undefined);
+      if (foobarObj.has('barBaz')) {
+        equal(foobarObj.get('barBaz').get('key'), 'value');
+        equal(foobarObj.get('barBaz').get('otherKey'), undefined);
+        if (foobarObj.get('barBaz').has('bazoo')) {
+          equal(foobarObj.get('barBaz').get('bazoo').get('some'), 'thing');
+          equal(foobarObj.get('barBaz').get('bazoo').get('otherSome'), undefined);
+        } else {
+          fail('bazoo should be set');
+        }
+      } else {
+        fail('barBaz should be set');
+      }
+      done();
+    })
+  });
+
+  it('properly handles nested ors', function(done) {
     var objects = [];
     while(objects.length != 4) {
       var obj = new Parse.Object('Object');
@@ -2548,20 +2733,20 @@ describe('Parse.Query testing', () => {
       objects.push(obj)
     }
     Parse.Object.saveAll(objects).then(() => {
-      let q0 = new Parse.Query('Object');
+      const q0 = new Parse.Query('Object');
       q0.equalTo('x', 0);
-      let q1 = new Parse.Query('Object');
+      const q1 = new Parse.Query('Object');
       q1.equalTo('x', 1);
-      let q2 = new Parse.Query('Object');
+      const q2 = new Parse.Query('Object');
       q2.equalTo('x', 2);
-      let or01 = Parse.Query.or(q0,q1);
+      const or01 = Parse.Query.or(q0,q1);
       return Parse.Query.or(or01, q2).find();
-    }).then((results) => {
+    }).then((results) => {
       expect(results.length).toBe(3);
       done();
-    }).catch((error) => {
+    }).catch((error) => {
       fail('should not fail');
-      console.error(error);
+      jfail(error);
       done();
     })
   });

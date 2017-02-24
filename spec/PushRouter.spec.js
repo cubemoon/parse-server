@@ -68,9 +68,9 @@ describe('PushRouter', () => {
     done();
   });
 
-  it_exclude_dbs(['postgres'])('sends a push through REST', (done) => {
+  it('sends a push through REST', (done) => {
     request.post({
-      url: Parse.serverURL+"/push",
+      url: Parse.serverURL + "/push",
       json: true,
       body: {
         'channels': {

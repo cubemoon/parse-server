@@ -53,9 +53,13 @@ describe('Parse.File testing', () => {
         expect(b.name).toMatch(/_file.html/);
         expect(b.url).toMatch(/^http:\/\/localhost:8378\/1\/files\/test\/.*file.html$/);
         request.get(b.url, (error, response, body) => {
-          expect(response.headers['content-type']).toMatch('^text/html');
-          expect(error).toBe(null);
-          expect(body).toEqual('<html></html>\n');
+          try {
+            expect(response.headers['content-type']).toMatch('^text/html');
+            expect(error).toBe(null);
+            expect(body).toEqual('<html></html>\n');
+          } catch(e) {
+            jfail(e);
+          }
           done();
         });
       });
@@ -109,7 +113,7 @@ describe('Parse.File testing', () => {
             'X-Parse-Master-Key': 'test'
           },
           url: 'http://localhost:8378/1/files/' + b.name
-        }, (error, response, body) => {
+        }, (error, response) => {
           expect(error).toBe(null);
           expect(response.statusCode).toEqual(200);
           request.get({
@@ -118,9 +122,13 @@ describe('Parse.File testing', () => {
               'X-Parse-REST-API-Key': 'rest'
             },
             url: b.url
-          }, (error, response, body) => {
+          }, (error, response) => {
             expect(error).toBe(null);
-            expect(response.statusCode).toEqual(404);
+            try {
+              expect(response.statusCode).toEqual(404);
+            } catch(e) {
+              jfail(e);
+            }
             done();
           });
         });
@@ -207,10 +215,10 @@ describe('Parse.File testing', () => {
         notEqual(file.name(), "hello.txt");
         done();
       }
-    }));
+    }, done));
   });
 
-  it_exclude_dbs(['postgres'])("save file in object", done => {
+  it("save file in object", done => {
     var file = new Parse.File("hello.txt", data, "text/plain");
     ok(!file.url());
     file.save(expectSuccess({
@@ -232,12 +240,12 @@ describe('Parse.File testing', () => {
               }
             }));
           }
-        }));
+        }, done));
       }
-    }));
+    }, done));
   });
 
-  it_exclude_dbs(['postgres'])("save file in object with escaped characters in filename", done => {
+  it("save file in object with escaped characters in filename", done => {
     var file = new Parse.File("hello . txt", data, "text/plain");
     ok(!file.url());
     file.save(expectSuccess({
@@ -260,12 +268,12 @@ describe('Parse.File testing', () => {
               }
             }));
           }
-        }));
+        }, done));
       }
-    }));
+    }, done));
   });
 
-  it_exclude_dbs(['postgres'])("autosave file in object", done => {
+  it("autosave file in object", done => {
     var file = new Parse.File("hello.txt", data, "text/plain");
     ok(!file.url());
     var object = new Parse.Object("TestObject");
@@ -282,12 +290,12 @@ describe('Parse.File testing', () => {
             notEqual(file.name(), "hello.txt");
             done();
           }
-        }));
+        }, done));
       }
-    }));
+    }, done));
   });
 
-  it_exclude_dbs(['postgres'])("autosave file in object in object", done => {
+  it("autosave file in object in object", done => {
     var file = new Parse.File("hello.txt", data, "text/plain");
     ok(!file.url());
 
@@ -311,9 +319,9 @@ describe('Parse.File testing', () => {
             notEqual(file.name(), "hello.txt");
             done();
           }
-        }));
+        }, done));
       }
-    }));
+    }, done));
   });
 
   it("saving an already saved file", done => {
@@ -332,9 +340,9 @@ describe('Parse.File testing', () => {
             equal(file.name(), previousName);
             done();
           }
-        }));
+        }, done));
       }
-    }));
+    },  done));
   });
 
   it("two saves at the same time", done => {
@@ -355,18 +363,18 @@ describe('Parse.File testing', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("file toJSON testing", done => {
+  it("file toJSON testing", done => {
     var file = new Parse.File("hello.txt", data, "text/plain");
     ok(!file.url());
     var object = new Parse.Object("TestObject");
     object.save({
       file: file
     }, expectSuccess({
-      success: function(obj) {
+      success: function() {
         ok(object.toJSON().file.url);
         done();
       }
-    }));
+    }, done));
   });
 
   it("content-type used with no extension", done => {
@@ -383,7 +391,11 @@ describe('Parse.File testing', () => {
       expect(error).toBe(null);
       var b = JSON.parse(body);
       expect(b.name).toMatch(/\.html$/);
-      request.get(b.url, (error, response, body) => {
+      request.get(b.url, (error, response) => {
+        if (!response) {
+          fail('response should be set');
+          return done();
+        }
         expect(response.headers['content-type']).toMatch(/^text\/html/);
         done();
       });
@@ -488,10 +500,13 @@ describe('Parse.File testing', () => {
       expect(fileAgain.name()).toEqual('meep');
       expect(fileAgain.url()).toEqual('http://meep.meep');
       done();
+    }).catch((e) => {
+      jfail(e);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates correct url for old files hosted on files.parsetfss.com', done => {
+  it('creates correct url for old files hosted on files.parsetfss.com', done => {
     var file = {
       __type: 'File',
       url: 'http://irrelevant.elephant/',
@@ -508,10 +523,13 @@ describe('Parse.File testing', () => {
         'http://files.parsetfss.com/test/tfss-123.txt'
       );
       done();
+    }).catch((e) => {
+      jfail(e);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates correct url for old files hosted on files.parse.com', done => {
+  it('creates correct url for old files hosted on files.parse.com', done => {
     var file = {
       __type: 'File',
       url: 'http://irrelevant.elephant/',
@@ -528,10 +546,13 @@ describe('Parse.File testing', () => {
         'http://files.parse.com/test/d6e80979-a128-4c57-a167-302f874700dc-123.txt'
       );
       done();
+    }).catch((e) => {
+      jfail(e);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('supports files in objects without urls', done => {
+  it('supports files in objects without urls', done => {
     var file = {
       __type: 'File',
       name: '123.txt'
@@ -542,8 +563,35 @@ describe('Parse.File testing', () => {
       var query = new Parse.Query('FileTest');
       return query.first();
     }).then(result => {
-      let fileAgain = result.get('file');
+      const fileAgain = result.get('file');
       expect(fileAgain.url()).toMatch(/123.txt$/);
+      done();
+    }).catch((e) => {
+      jfail(e);
+      done();
+    });
+  });
+
+  it('return with publicServerURL when provided', done => {
+    reconfigureServer({
+      publicServerURL: 'https://mydomain/parse'
+    }).then(() => {
+      var file = {
+        __type: 'File',
+        name: '123.txt'
+      };
+      var obj = new Parse.Object('FileTest');
+      obj.set('file', file);
+      return obj.save()
+    }).then(() => {
+      var query = new Parse.Query('FileTest');
+      return query.first();
+    }).then(result => {
+      const fileAgain = result.get('file');
+      expect(fileAgain.url().indexOf('https://mydomain/parse')).toBe(0);
+      done();
+    }).catch((e) => {
+      jfail(e);
       done();
     });
   });

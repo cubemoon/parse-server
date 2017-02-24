@@ -14,22 +14,36 @@ var RestQuery = require('./RestQuery');
 var RestWrite = require('./RestWrite');
 var triggers = require('./triggers');
 
+function checkTriggers(className, config, types) {
+  return types.some((triggerType) => {
+    return triggers.getTrigger(className, triggers.Types[triggerType], config.applicationId);
+  });
+}
+
+function checkLiveQuery(className, config) {
+  return config.liveQueryController && config.liveQueryController.hasLiveQuery(className)
+}
+
 // Returns a promise for an object with optional keys 'results' and 'count'.
 function find(config, auth, className, restWhere, restOptions, clientSDK) {
   enforceRoleSecurity('find', className, auth);
-  let query = new RestQuery(config, auth, className, restWhere, restOptions, clientSDK);
-  return query.execute();
+  return triggers.maybeRunQueryTrigger(triggers.Types.beforeFind, className, restWhere, restOptions, config, auth).then((result) => {
+    restWhere = result.restWhere || restWhere;
+    restOptions = result.restOptions || restOptions;
+    const query = new RestQuery(config, auth, className, restWhere, restOptions, clientSDK);
+    return query.execute();
+  });
 }
 
 // get is just like find but only queries an objectId.
 const get = (config, auth, className, objectId, restOptions, clientSDK) => {
   enforceRoleSecurity('get', className, auth);
-  let query = new RestQuery(config, auth, className, { objectId }, restOptions, clientSDK);
+  const query = new RestQuery(config, auth, className, { objectId }, restOptions, clientSDK);
   return query.execute();
 }
 
 // Returns a promise that doesn't resolve to any useful value.
-function del(config, auth, className, objectId, clientSDK) {
+function del(config, auth, className, objectId) {
   if (typeof objectId !== 'string') {
     throw new Parse.Error(Parse.Error.INVALID_JSON,
                           'bad objectId');
@@ -45,10 +59,9 @@ function del(config, auth, className, objectId, clientSDK) {
   var inflatedObject;
 
   return Promise.resolve().then(() => {
-    if (triggers.getTrigger(className, triggers.Types.beforeDelete, config.applicationId) ||
-        triggers.getTrigger(className, triggers.Types.afterDelete, config.applicationId) ||
-        (config.liveQueryController && config.liveQueryController.hasLiveQuery(className)) ||
-        className == '_Session') {
+    const hasTriggers = checkTriggers(className, config, ['beforeDelete', 'afterDelete']);
+    const hasLiveQuery = checkLiveQuery(className, config);
+    if (hasTriggers || hasLiveQuery || className == '_Session') {
       return find(config, Auth.master(config), className, {objectId: objectId})
       .then((response) => {
         if (response && response.results && response.results.length) {
@@ -86,8 +99,7 @@ function del(config, auth, className, objectId, clientSDK) {
       objectId: objectId
     }, options);
   }).then(() => {
-    triggers.maybeRunTrigger(triggers.Types.afterDelete, auth, inflatedObject, null, config);
-    return;
+    return triggers.maybeRunTrigger(triggers.Types.afterDelete, auth, inflatedObject, null, config);
   });
 }
 
@@ -105,9 +117,9 @@ function update(config, auth, className, objectId, restObject, clientSDK) {
   enforceRoleSecurity('update', className, auth);
 
   return Promise.resolve().then(() => {
-    if (triggers.getTrigger(className, triggers.Types.beforeSave, config.applicationId) ||
-        triggers.getTrigger(className, triggers.Types.afterSave, config.applicationId) ||
-        (config.liveQueryController && config.liveQueryController.hasLiveQuery(className))) {
+    const hasTriggers = checkTriggers(className, config, ['beforeSave', 'afterSave']);
+    const hasLiveQuery = checkLiveQuery(className, config);
+    if (hasTriggers || hasLiveQuery) {
       return find(config, Auth.master(config), className, {objectId: objectId});
     }
     return Promise.resolve({});
@@ -126,7 +138,7 @@ function update(config, auth, className, objectId, restObject, clientSDK) {
 function enforceRoleSecurity(method, className, auth) {
   if (className === '_Installation' && !auth.isMaster) {
     if (method === 'delete' || method === 'find') {
-      let error = `Clients aren't allowed to perform the ${method} operation on the installation collection.`
+      const error = `Clients aren't allowed to perform the ${method} operation on the installation collection.`
       throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, error);
     }
   }

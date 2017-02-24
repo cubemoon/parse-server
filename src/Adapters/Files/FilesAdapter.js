@@ -1,3 +1,4 @@
+/*eslint no-unused-vars: "off"*/
 // Files Adapter
 //
 // Allows you to change the file storage mechanism.
@@ -12,7 +13,7 @@
 // database adapter.
 
 export class FilesAdapter {
-  /* this method is responsible to store the file in order to be retrived later by it's file name
+  /* This method is responsible to store the file in order to be retrieved later by its file name
    *
    * @param filename the filename to save
    * @param data the buffer of data from the file

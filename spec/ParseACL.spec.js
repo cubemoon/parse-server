@@ -63,7 +63,7 @@ describe('Parse.ACL', () => {
               // Get
               var query = new Parse.Query(TestObject);
               query.get(object.id, {
-                success: function(model) {
+                success: function() {
                   fail('Should not have retrieved the object.');
                   done();
                 },
@@ -155,7 +155,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl an object owned by one user and public delete", (done) => {
+  it("acl an object owned by one user and public delete", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -359,7 +359,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly readable and public get", (done) => {
+  it("acl making an object publicly readable and public get", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -407,7 +407,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly readable and public find", (done) => {
+  it("acl making an object publicly readable and public find", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -457,7 +457,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly readable and public update", (done) => {
+  it("acl making an object publicly readable and public update", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -504,7 +504,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly readable and public delete", (done) => {
+  it("acl making an object publicly readable and public delete", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -548,7 +548,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly writable and public get", (done) => {
+  it("acl making an object publicly writable and public get", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -595,7 +595,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly writable and public find", (done) => {
+  it("acl making an object publicly writable and public find", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -642,7 +642,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly writable and public update", (done) => {
+  it("acl making an object publicly writable and public update", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -688,7 +688,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl making an object publicly writable and public delete", (done) => {
+  it("acl making an object publicly writable and public delete", (done) => {
     // Create an object owned by Alice.
     var user = new Parse.User();
     user.set("username", "alice");
@@ -730,6 +730,40 @@ describe('Parse.ACL', () => {
           }
         });
       }
+    });
+  });
+
+  it("acl making an object privately writable (#3194)", (done) => {
+    // Create an object owned by Alice.
+    var object;
+    var user2;
+    var user = new Parse.User();
+    user.set("username", "alice");
+    user.set("password", "wonderland");
+    user.signUp().then(() => {
+      object = new TestObject();
+      var acl = new Parse.ACL(user);
+      acl.setPublicWriteAccess(false);
+      acl.setPublicReadAccess(true);
+      object.setACL(acl);
+      return object.save().then(() => {
+        return Parse.User.logOut();
+      })
+    }).then(() => {
+      user2 = new Parse.User();
+      user2.set("username", "bob");
+      user2.set("password", "burger");
+      return user2.signUp();
+    }).then(() => {
+      console.log(user2.getSessionToken());
+      return object.destroy({sessionToken: user2.getSessionToken() });
+    }).then((res) => {
+      console.log(res);
+      fail('should not be able to destroy the object');
+      done();
+    }, (err) => {
+      console.error(err);
+      done();
     });
   });
 
@@ -1051,7 +1085,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])("acl sharing with another user and public delete", (done) => {
+  it("acl sharing with another user and public delete", (done) => {
     // Sign in as Bob.
     Parse.User.signUp("bob", "pass", null, {
       success: function(bob) {
@@ -1139,7 +1173,7 @@ describe('Parse.ACL', () => {
       ACL: new Parse.ACL(),
       foo: "bar"
     }, {
-      success: function(user) {
+      success: function() {
         Parse.User.logOut()
         .then(() => {
           Parse.User.logIn("tdurden", "mayhem", {
@@ -1202,7 +1236,7 @@ describe('Parse.ACL', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('regression test #701', done => {
+  it('regression test #701', done => {
     var anonUser = {
       authData: {
         anonymous: {
@@ -1211,13 +1245,13 @@ describe('Parse.ACL', () => {
       }
     };
 
-    Parse.Cloud.afterSave(Parse.User, req => {
+    Parse.Cloud.afterSave(Parse.User, req => {
       if (!req.object.existed()) {
         var user = req.object;
         var acl = new Parse.ACL(user);
         user.setACL(acl);
         user.save(null, {useMasterKey: true}).then(user => {
-          new Parse.Query('_User').get(user.objectId).then(user => {
+          new Parse.Query('_User').get(user.objectId).then(() => {
             fail('should not have fetched user without public read enabled');
             done();
           }, error => {

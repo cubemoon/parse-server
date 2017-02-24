@@ -1,11 +1,9 @@
 import AppCache from './cache';
-import log      from './logger';
-
-var Parse = require('parse/node').Parse;
-
-var auth = require('./Auth');
-var Config = require('./Config');
-var ClientSDK = require('./ClientSDK');
+import log from './logger';
+import Parse from 'parse/node';
+import auth from './Auth';
+import Config from './Config';
+import ClientSDK from './ClientSDK';
 
 // Checks that the request is authorized for this app and checks user
 // auth too.
@@ -13,7 +11,7 @@ var ClientSDK = require('./ClientSDK');
 // Adds info to the request:
 // req.config - the Config for this app
 // req.auth - the Auth for this request
-function handleParseHeaders(req, res, next) {
+export function handleParseHeaders(req, res, next) {
   var mountPathLength = req.originalUrl.length - req.url.length;
   var mountPath = req.originalUrl.slice(0, mountPathLength);
   var mount = req.protocol + '://' + req.get('host') + mountPath;
@@ -33,9 +31,12 @@ function handleParseHeaders(req, res, next) {
   var basicAuth = httpAuth(req);
 
   if (basicAuth) {
-    info.appId = basicAuth.appId
-    info.masterKey = basicAuth.masterKey || info.masterKey;
-    info.javascriptKey = basicAuth.javascriptKey || info.javascriptKey;
+    var basicAuthAppId = basicAuth.appId;
+    if (AppCache.get(basicAuthAppId)) {
+      info.appId = basicAuthAppId;
+      info.masterKey = basicAuth.masterKey || info.masterKey;
+      info.javascriptKey = basicAuth.javascriptKey || info.javascriptKey;
+    }
   }
 
   if (req.body) {
@@ -119,20 +120,15 @@ function handleParseHeaders(req, res, next) {
 
   // Client keys are not required in parse-server, but if any have been configured in the server, validate them
   //  to preserve original behavior.
-  let keys = ["clientKey", "javascriptKey", "dotNetKey", "restAPIKey"];
+  const keys = ["clientKey", "javascriptKey", "dotNetKey", "restAPIKey"];
+  const oneKeyConfigured = keys.some(function(key) {
+    return req.config[key] !== undefined;
+  });
+  const oneKeyMatches = keys.some(function(key){
+    return req.config[key] !== undefined && info[key] === req.config[key];
+  });
 
-  // We do it with mismatching keys to support no-keys config
-  var keyMismatch = keys.reduce(function(mismatch, key){
-
-    // check if set in the config and compare
-    if (req.config[key] && info[key] !== req.config[key]) {
-      mismatch++;
-    }
-    return mismatch;
-  }, 0);
-
-  // All keys mismatch
-  if (keyMismatch == keys.length) {
+  if (oneKeyConfigured && !oneKeyMatches) {
     return invalidRequest(req, res);
   }
 
@@ -146,13 +142,21 @@ function handleParseHeaders(req, res, next) {
     return;
   }
 
-  return auth.getAuthForSessionToken({ config: req.config, installationId: info.installationId, sessionToken: info.sessionToken })
-    .then((auth) => {
-      if (auth) {
-        req.auth = auth;
-        next();
-      }
-    })
+  return Promise.resolve().then(() => {
+    // handle the upgradeToRevocableSession path on it's own
+    if (info.sessionToken &&
+        req.url === '/upgradeToRevocableSession' &&
+        info.sessionToken.indexOf('r:') != 0) {
+      return auth.getAuthForLegacySessionToken({ config: req.config, installationId: info.installationId, sessionToken: info.sessionToken })
+    } else {
+      return auth.getAuthForSessionToken({ config: req.config, installationId: info.installationId, sessionToken: info.sessionToken })
+    }
+  }).then((auth) => {
+    if (auth) {
+      req.auth = auth;
+      next();
+    }
+  })
     .catch((error) => {
       if(error instanceof Parse.Error) {
         next(error);
@@ -205,7 +209,7 @@ function decodeBase64(str) {
   return new Buffer(str, 'base64').toString()
 }
 
-var allowCrossDomain = function(req, res, next) {
+export function allowCrossDomain(req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'X-Parse-Master-Key, X-Parse-REST-API-Key, X-Parse-Javascript-Key, X-Parse-Application-Id, X-Parse-Client-Version, X-Parse-Session-Token, X-Requested-With, X-Parse-Revocable-Session, Content-Type');
@@ -217,22 +221,20 @@ var allowCrossDomain = function(req, res, next) {
   else {
     next();
   }
-};
+}
 
-var allowMethodOverride = function(req, res, next) {
+export function allowMethodOverride(req, res, next) {
   if (req.method === 'POST' && req.body._method) {
     req.originalMethod = req.method;
     req.method = req.body._method;
     delete req.body._method;
   }
   next();
-};
+}
 
-var handleParseErrors = function(err, req, res, next) {
-  // TODO: Add logging as those errors won't make it to the PromiseRouter
+export function handleParseErrors(err, req, res, next) {
   if (err instanceof Parse.Error) {
-    var httpStatus;
-
+    let httpStatus;
     // TODO: fill out this mapping
     switch (err.code) {
     case Parse.Error.INTERNAL_SERVER_ERROR:
@@ -246,20 +248,25 @@ var handleParseErrors = function(err, req, res, next) {
     }
 
     res.status(httpStatus);
-    res.json({code: err.code, error: err.message});
+    res.json({ code: err.code, error: err.message });
+    log.error(err.message, err);
   } else if (err.status && err.message) {
     res.status(err.status);
-    res.json({error: err.message});
+    res.json({ error: err.message });
+    next(err);
   } else {
     log.error('Uncaught internal server error.', err, err.stack);
     res.status(500);
-    res.json({code: Parse.Error.INTERNAL_SERVER_ERROR,
-              message: 'Internal server error.'});
+    res.json({
+      code: Parse.Error.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error.'
+    });
+    next(err);
   }
-  next(err);
-};
 
-function enforceMasterKeyAccess(req, res, next) {
+}
+
+export function enforceMasterKeyAccess(req, res, next) {
   if (!req.auth.isMaster) {
     res.status(403);
     res.end('{"error":"unauthorized: master key is required"}');
@@ -268,9 +275,9 @@ function enforceMasterKeyAccess(req, res, next) {
   next();
 }
 
-function promiseEnforceMasterKeyAccess(request) {
+export function promiseEnforceMasterKeyAccess(request) {
   if (!request.auth.isMaster) {
-    let error = new Error();
+    const error = new Error();
     error.status = 403;
     error.message = "unauthorized: master key is required";
     throw error;
@@ -282,12 +289,3 @@ function invalidRequest(req, res) {
   res.status(403);
   res.end('{"error":"unauthorized"}');
 }
-
-module.exports = {
-  allowCrossDomain: allowCrossDomain,
-  allowMethodOverride: allowMethodOverride,
-  handleParseErrors: handleParseErrors,
-  handleParseHeaders: handleParseHeaders,
-  enforceMasterKeyAccess: enforceMasterKeyAccess,
-  promiseEnforceMasterKeyAccess,
-};

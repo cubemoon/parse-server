@@ -1,9 +1,9 @@
 // These tests are unit tests designed to only test transform.js.
 "use strict";
 
-let transform = require('../src/Adapters/Storage/Mongo/MongoTransform');
-let dd = require('deep-diff');
-let mongodb = require('mongodb');
+const transform = require('../src/Adapters/Storage/Mongo/MongoTransform');
+const dd = require('deep-diff');
+const mongodb = require('mongodb');
 
 describe('parseObjectToMongoObjectForCreate', () => {
   it('a basic number', (done) => {
@@ -156,6 +156,18 @@ describe('parseObjectToMongoObjectForCreate', () => {
     done();
   });
 
+  it('bytes', (done) => {
+    var input = {binaryData: "aGVsbG8gd29ybGQ="};
+    var output = transform.mongoObjectToParseObject(null, input, {
+      fields: { binaryData: { type: 'Bytes' }},
+    });
+    expect(typeof output.binaryData).toEqual('object');
+    expect(output.binaryData).toEqual(
+      {__type: 'Bytes', base64: "aGVsbG8gd29ybGQ="}
+    );
+    done();
+  });
+
   it('nested array', (done) => {
     var input = {arr: [{_testKey: 'testValue' }]};
     var output = transform.mongoObjectToParseObject(null, input, {
@@ -167,7 +179,7 @@ describe('parseObjectToMongoObjectForCreate', () => {
   });
 
   it('untransforms objects containing nested special keys', done => {
-    let input = {array: [{
+    const input = {array: [{
       _id: "Test ID",
       _hashed_password: "I Don't know why you would name a key this, but if you do it should work",
       _tombstone: {
@@ -178,7 +190,7 @@ describe('parseObjectToMongoObjectForCreate', () => {
       },
       regularKey: "some data",
     }]}
-    let output = transform.mongoObjectToParseObject(null, input, {
+    const output = transform.mongoObjectToParseObject(null, input, {
       fields: { array: { type: 'Array' }},
     });
     expect(dd(output, input)).toEqual(undefined);
@@ -209,7 +221,7 @@ describe('parseObjectToMongoObjectForCreate', () => {
     done();
   });
 
-  it('writes the old ACL format in addition to rperm and wperm', (done) => {
+  it('writes the old ACL format in addition to rperm and wperm on create', (done) => {
     var input = {
       _rperm: ['*'],
       _wperm: ['Kevin'],
@@ -217,10 +229,42 @@ describe('parseObjectToMongoObjectForCreate', () => {
 
     var output = transform.parseObjectToMongoObjectForCreate(null, input, { fields: {} });
     expect(typeof output._acl).toEqual('object');
-    expect(output._acl["Kevin"].w).toBeTruthy();
-    expect(output._acl["Kevin"].r).toBeUndefined();
+    expect(output._acl['Kevin'].w).toBeTruthy();
+    expect(output._acl['Kevin'].r).toBeUndefined();
+    expect(output._rperm).toEqual(input._rperm);
+    expect(output._wperm).toEqual(input._wperm);
     done();
-  })
+  });
+
+  it('removes Relation types', (done) => {
+    var input = {
+      aRelation: { __type: 'Relation', className: 'Stuff' },
+    };
+    var output = transform.parseObjectToMongoObjectForCreate(null, input, {
+      fields: {
+        aRelation: { __type: 'Relation', className: 'Stuff' },
+      },
+    });
+    expect(output).toEqual({});
+    done();
+  });
+
+  it('writes the old ACL format in addition to rperm and wperm on update', (done) => {
+    var input = {
+      _rperm: ['*'],
+      _wperm: ['Kevin']
+    };
+
+    var output = transform.transformUpdate(null, input, { fields: {} });
+    var set = output.$set;
+    expect(typeof set).toEqual('object');
+    expect(typeof set._acl).toEqual('object');
+    expect(set._acl['Kevin'].w).toBeTruthy();
+    expect(set._acl['Kevin'].r).toBeUndefined();
+    expect(set._rperm).toEqual(input._rperm);
+    expect(set._wperm).toEqual(input._wperm);
+    done();
+  });
 
   it('untransforms from _rperm and _wperm to ACL', (done) => {
     var input = {
@@ -234,7 +278,7 @@ describe('parseObjectToMongoObjectForCreate', () => {
     done();
   });
 
-  it('untransforms mongodb number types', (done) => {
+  it('untransforms mongodb number types', (done) => {
     var input = {
       long: mongodb.Long.fromNumber(Number.MAX_SAFE_INTEGER),
       double: new mongodb.Double(Number.MAX_VALUE)
@@ -250,4 +294,44 @@ describe('parseObjectToMongoObjectForCreate', () => {
     done();
   });
 
+  it('Date object where iso attribute is of type Date', (done) => {
+    var input = {
+      ts : { __type: 'Date', iso: new Date('2017-01-18T00:00:00.000Z') }
+    }
+    var output = transform.mongoObjectToParseObject(null, input, {
+      fields : {
+        ts : { type : 'Date' }
+      }
+    });
+    expect(output.ts.iso).toEqual('2017-01-18T00:00:00.000Z');
+    done();
+  });
+
+  it('Date object where iso attribute is of type String', (done) => {
+    var input = {
+      ts : { __type: 'Date', iso: '2017-01-18T00:00:00.000Z' }
+    }
+    var output = transform.mongoObjectToParseObject(null, input, {
+      fields : {
+        ts : { type : 'Date' }
+      }
+    });
+    expect(output.ts.iso).toEqual('2017-01-18T00:00:00.000Z');
+    done();
+  });
+});
+
+describe('transformUpdate', () => {
+  it('removes Relation types', (done) => {
+    var input = {
+      aRelation: { __type: 'Relation', className: 'Stuff' },
+    };
+    var output = transform.transformUpdate(null, input, {
+      fields: {
+        aRelation: { __type: 'Relation', className: 'Stuff' },
+      },
+    });
+    expect(output).toEqual({});
+    done();
+  });
 });

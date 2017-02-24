@@ -5,11 +5,26 @@
 // themselves use our routing information, without disturbing express
 // components that external developers may be modifying.
 
-import AppCache  from './cache';
+import Parse     from 'parse/node';
 import express   from 'express';
-import url       from 'url';
 import log       from './logger';
 import {inspect} from 'util';
+const Layer = require('express/lib/router/layer');
+
+function validateParameter(key, value) {
+  if (key == 'className') {
+    if (value.match(/_?[A-Za-z][A-Za-z_0-9]*/)) {
+      return value;
+    }
+  } else if (key == 'objectId') {
+    if (value.match(/[A-Za-z0-9]+/)) {
+      return value;
+    }
+  } else {
+    return value;
+  }
+}
+
 
 export default class PromiseRouter {
   // Each entry should be an object with:
@@ -36,7 +51,7 @@ export default class PromiseRouter {
     for (var route of router.routes) {
       this.routes.push(route);
     }
-  };
+  }
 
   route(method, path, ...handlers) {
     switch(method) {
@@ -52,10 +67,9 @@ export default class PromiseRouter {
     let handler = handlers[0];
 
     if (handlers.length > 1) {
-      const length = handlers.length;
       handler = function(req) {
         return handlers.reduce((promise, handler) => {
-          return promise.then((result) => {
+          return promise.then(() => {
             return handler(req);
           });
         }, Promise.resolve());
@@ -65,9 +79,10 @@ export default class PromiseRouter {
     this.routes.push({
       path: path,
       method: method,
-      handler: handler
+      handler: handler,
+      layer: new Layer(path, null, handler)
     });
-  };
+  }
 
   // Returns an object with:
   //   handler: the handler that should deal with this request
@@ -78,76 +93,43 @@ export default class PromiseRouter {
       if (route.method != method) {
         continue;
       }
-      // NOTE: we can only route the specific wildcards :className and
-      // :objectId, and in that order.
-      // This is pretty hacky but I don't want to rebuild the entire
-      // express route matcher. Maybe there's a way to reuse its logic.
-      var pattern = '^' + route.path + '$';
-
-      pattern = pattern.replace(':className',
-                                '(_?[A-Za-z][A-Za-z_0-9]*)');
-      pattern = pattern.replace(':objectId',
-                                '([A-Za-z0-9]+)');
-      var re = new RegExp(pattern);
-      var m = path.match(re);
-      if (!m) {
-        continue;
+      const layer = route.layer || new Layer(route.path, null, route.handler);
+      const match = layer.match(path);
+      if (match) {
+        const params = layer.params;
+        Object.keys(params).forEach((key) => {
+          params[key] = validateParameter(key, params[key]);
+        });
+        return {params: params, handler: route.handler};
       }
-      var params = {};
-      if (m[1]) {
-        params.className = m[1];
-      }
-      if (m[2]) {
-        params.objectId = m[2];
-      }
-
-      return {params: params, handler: route.handler};
     }
-  };
+  }
 
   // Mount the routes on this router onto an express app (or express router)
   mountOnto(expressApp) {
-    for (var route of this.routes) {
-      switch(route.method) {
-      case 'POST':
-        expressApp.post(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'GET':
-        expressApp.get(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'PUT':
-        expressApp.put(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'DELETE':
-        expressApp.delete(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      default:
-        throw 'unexpected code branch';
-      }
-    }
-  };
-
-  expressApp() {
-    var expressApp = express();
-    for (var route of this.routes) {
-      switch(route.method) {
-      case 'POST':
-        expressApp.post(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'GET':
-        expressApp.get(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'PUT':
-        expressApp.put(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      case 'DELETE':
-        expressApp.delete(route.path, makeExpressHandler(this.appId, route.handler));
-        break;
-      default:
-        throw 'unexpected code branch';
-      }
-    }
+    this.routes.forEach((route) => {
+      const method = route.method.toLowerCase();
+      const handler = makeExpressHandler(this.appId, route.handler);
+      expressApp[method].call(expressApp, route.path, handler);
+    });
     return expressApp;
+  }
+
+  expressRouter() {
+    return this.mountOnto(express.Router());
+  }
+
+  tryRouteRequest(method, path, request) {
+    var match = this.match(method, path);
+    if (!match) {
+      throw new Parse.Error(
+        Parse.Error.INVALID_JSON,
+        'cannot route ' + method + ' ' + path);
+    }
+    request.params = match.params;
+    return new Promise((resolve, reject) => {
+      match.handler(request).then(resolve, reject);
+    });
   }
 }
 
@@ -156,12 +138,11 @@ export default class PromiseRouter {
 // Express handlers should never throw; if a promise handler throws we
 // just treat it like it resolved to an error.
 function makeExpressHandler(appId, promiseHandler) {
-  let config = AppCache.get(appId);
   return function(req, res, next) {
     try {
-      let url = maskSensitiveUrl(req);
-      let body = maskSensitiveBody(req);
-      let stringifiedBody = JSON.stringify(body, null, 2);
+      const url = maskSensitiveUrl(req);
+      const body = Object.assign({}, req.body);
+      const stringifiedBody = JSON.stringify(body, null, 2);
       log.verbose(`REQUEST for [${req.method}] ${url}: ${stringifiedBody}`, {
         method: req.method,
         url: url,
@@ -174,7 +155,7 @@ function makeExpressHandler(appId, promiseHandler) {
           throw 'control should not get here';
         }
 
-        let stringifiedResponse = JSON.stringify(result, null, 2);
+        const stringifiedResponse = JSON.stringify(result, null, 2);
         log.verbose(
           `RESPONSE from [${req.method}] ${url}: ${stringifiedResponse}`,
           {result: result}
@@ -185,7 +166,7 @@ function makeExpressHandler(appId, promiseHandler) {
 
         if (result.text) {
           res.send(result.text);
-          return next();
+          return;
         }
 
         if (result.location) {
@@ -193,8 +174,8 @@ function makeExpressHandler(appId, promiseHandler) {
           // Override the default expressjs response
           // as it double encodes %encoded chars in URL
           if (!result.response) {
-            res.send('Found. Redirecting to '+result.location);
-            return next();
+            res.send('Found. Redirecting to ' + result.location);
+            return;
           }
         }
         if (result.headers) {
@@ -203,7 +184,6 @@ function makeExpressHandler(appId, promiseHandler) {
           })
         }
         res.json(result.response);
-        next();
       }, (e) => {
         log.error(`Error generating response. ${inspect(e)}`, {error: e});
         next(e);
@@ -215,33 +195,13 @@ function makeExpressHandler(appId, promiseHandler) {
   }
 }
 
-function maskSensitiveBody(req) {
-  let maskBody = Object.assign({}, req.body);
-  let shouldMaskBody = (req.method === 'POST' && req.originalUrl.endsWith('/users')
-                       && !req.originalUrl.includes('classes')) ||
-                       (req.method === 'PUT' && /users\/\w+$/.test(req.originalUrl)
-                       && !req.originalUrl.includes('classes')) ||
-                       (req.originalUrl.includes('classes/_User'));
-  if (shouldMaskBody) {
-    for (let key of Object.keys(maskBody)) {
-      if (key == 'password') {
-        maskBody[key] = '********';
-        break;
-      }
-    }
-  }
-  return maskBody;
-}
 
 function maskSensitiveUrl(req) {
   let maskUrl = req.originalUrl.toString();
-  let shouldMaskUrl = req.method === 'GET' && req.originalUrl.includes('/login')
+  const shouldMaskUrl = req.method === 'GET' && req.originalUrl.includes('/login')
                       && !req.originalUrl.includes('classes');
   if (shouldMaskUrl) {
-    let password = url.parse(req.originalUrl, true).query.password;
-    if (password) {
-      maskUrl = maskUrl.replace('password=' + password, 'password=********')
-    }
+    maskUrl = log.maskSensitiveUrl(maskUrl);
   }
   return maskUrl;
 }

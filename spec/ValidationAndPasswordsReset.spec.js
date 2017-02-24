@@ -1,8 +1,8 @@
 "use strict";
 
-let MockEmailAdapterWithOptions = require('./MockEmailAdapterWithOptions');
-let request = require('request');
-let Config = require("../src/Config");
+const MockEmailAdapterWithOptions = require('./MockEmailAdapterWithOptions');
+const request = require('request');
+const Config = require("../src/Config");
 
 describe("Custom Pages, Email Verification, Password Reset", () => {
   it("should set the custom pages", (done) => {
@@ -12,7 +12,8 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
         invalidLink: "myInvalidLink",
         verifyEmailSuccess: "myVerifyEmailSuccess",
         choosePassword: "myChoosePassword",
-        passwordResetSuccess: "myPasswordResetSuccess"
+        passwordResetSuccess: "myPasswordResetSuccess",
+        parseFrameURL: "http://example.com/handle-parse-iframe"
       },
       publicServerURL: "https://my.public.server.com/1"
     })
@@ -22,13 +23,14 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       expect(config.verifyEmailSuccessURL).toEqual("myVerifyEmailSuccess");
       expect(config.choosePasswordURL).toEqual("myChoosePassword");
       expect(config.passwordResetSuccessURL).toEqual("myPasswordResetSuccess");
+      expect(config.parseFrameURL).toEqual("http://example.com/handle-parse-iframe");
       expect(config.verifyEmailURL).toEqual("https://my.public.server.com/1/apps/test/verify_email");
       expect(config.requestResetPasswordURL).toEqual("https://my.public.server.com/1/apps/test/request_password_reset");
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('sends verification email if email verification is enabled', done => {
+  it('sends verification email if email verification is enabled', done => {
     var emailAdapter = {
       sendVerificationEmail: () => Promise.resolve(),
       sendPasswordResetEmail: () => Promise.resolve(),
@@ -55,7 +57,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             done();
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -89,7 +91,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             done();
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -97,7 +99,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('does send a validation email when updating the email', done => {
+  it('does send a validation email when updating the email', done => {
     var emailAdapter = {
       sendVerificationEmail: () => Promise.resolve(),
       sendPasswordResetEmail: () => Promise.resolve(),
@@ -132,7 +134,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             }, 200);
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -140,7 +142,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('does send a validation email with valid verification link when updating the email', done => {
+  it('does send a validation email with valid verification link when updating the email', done => {
     var emailAdapter = {
       sendVerificationEmail: () => Promise.resolve(),
       sendPasswordResetEmail: () => Promise.resolve(),
@@ -179,7 +181,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             }, 200);
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -187,7 +189,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('does send with a simple adapter', done => {
+  it('does send with a simple adapter', done => {
     var calls = 0;
     var emailAdapter = {
       sendMail: function(options){
@@ -220,8 +222,8 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
           user.fetch()
           .then((user) => {
             return user.save();
-          }).then((user) => {
-            return Parse.User.requestPasswordReset("testSendSimpleAdapter@parse.com").catch((err) => {
+          }).then(() => {
+            return Parse.User.requestPasswordReset("testSendSimpleAdapter@parse.com").catch(() => {
               fail('Should not fail requesting a password');
               done();
             })
@@ -230,7 +232,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             done();
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -238,7 +240,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('prevents user from login if email is not verified but preventLoginWithUnverifiedEmail is set to true', done => {
+  it('prevents user from login if email is not verified but preventLoginWithUnverifiedEmail is set to true', done => {
     reconfigureServer({
       appName: 'test',
       publicServerURL: 'http://localhost:1337/1',
@@ -251,13 +253,13 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       }),
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.logIn("zxcv", "asdf"))
-      .then(result => {
+      .then(() => Parse.User.logIn("zxcv", "asdf"))
+      .then(() => {
         fail('login should have failed');
         done();
       }, error => {
@@ -271,7 +273,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('allows user to login only after user clicks on the link to confirm email address if preventLoginWithUnverifiedEmail is set to true', done => {
+  it('allows user to login only after user clicks on the link to confirm email address if preventLoginWithUnverifiedEmail is set to true', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -296,8 +298,8 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     }).then(() => {
       expect(sendEmailOptions).not.toBeUndefined();
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/verify_email_success.html?username=user');
         user.fetch()
@@ -309,25 +311,23 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             expect(typeof user).toBe('object');
             expect(user.get('emailVerified')).toBe(true);
             done();
-          }, error => {
+          }, () => {
             fail('login should have succeeded');
             done();
           });
         }, (err) => {
-          console.error(err);
+          jfail(err);
           fail("this should not fail");
           done();
-        }).catch((err) =>
-        {
-          console.error(err);
-          fail(err);
+        }).catch((err) => {
+          jfail(err);
           done();
         })
       });
     });
   });
 
-  it_exclude_dbs(['postgres'])('allows user to login if email is not verified but preventLoginWithUnverifiedEmail is set to false', done => {
+  it('allows user to login if email is not verified but preventLoginWithUnverifiedEmail is set to false', done => {
     reconfigureServer({
       appName: 'test',
       publicServerURL: 'http://localhost:1337/1',
@@ -340,17 +340,17 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       }),
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.logIn("zxcv", "asdf"))
+      .then(() => Parse.User.logIn("zxcv", "asdf"))
       .then(user => {
         expect(typeof user).toBe('object');
         expect(user.get('emailVerified')).toBe(false);
         done();
-      }, error => {
+      }, () => {
         fail('login should have succeeded');
         done();
       });
@@ -361,7 +361,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('fails if you include an emailAdapter, set a publicServerURL, but have no appName and send a password reset email', done => {
+  it('fails if you include an emailAdapter, set a publicServerURL, but have no appName and send a password reset email', done => {
     reconfigureServer({
       appName: undefined,
       publicServerURL: 'http://localhost:1337/1',
@@ -372,12 +372,12 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       }),
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
+      .then(() => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
       .then(result => {
         console.log(result);
         fail('sending password reset email should not have succeeded');
@@ -393,7 +393,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('fails if you include an emailAdapter, have an appName, but have no publicServerURL and send a password reset email', done => {
+  it('fails if you include an emailAdapter, have an appName, but have no publicServerURL and send a password reset email', done => {
     reconfigureServer({
       appName: undefined,
       emailAdapter: MockEmailAdapterWithOptions({
@@ -403,12 +403,12 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       }),
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
+      .then(() => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
       .then(result => {
         console.log(result);
         fail('sending password reset email should not have succeeded');
@@ -424,19 +424,19 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('fails if you set a publicServerURL, have an appName, but no emailAdapter and send a password reset email', done => {
+  it('fails if you set a publicServerURL, have an appName, but no emailAdapter and send a password reset email', done => {
     reconfigureServer({
       appName: 'unused',
       publicServerURL: 'http://localhost:1337/1',
       emailAdapter: undefined,
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
+      .then(() => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
       .then(result => {
         console.log(result);
         fail('sending password reset email should not have succeeded');
@@ -452,7 +452,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('succeeds sending a password reset email if appName, publicServerURL, and email adapter are prodvided', done => {
+  it('succeeds sending a password reset email if appName, publicServerURL, and email adapter are prodvided', done => {
     reconfigureServer({
       appName: 'coolapp',
       publicServerURL: 'http://localhost:1337/1',
@@ -463,13 +463,52 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       }),
     })
     .then(() => {
-      let user = new Parse.User();
+      const user = new Parse.User();
       user.setPassword("asdf");
       user.setUsername("zxcv");
       user.set("email", "testInvalidConfig@parse.com");
       user.signUp(null)
-      .then(user => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
-      .then(result => {
+      .then(() => Parse.User.requestPasswordReset("testInvalidConfig@parse.com"))
+      .then(() => {
+        done();
+      }, error => {
+        done(error);
+      });
+    })
+    .catch(error => {
+      fail(JSON.stringify(error));
+      done();
+    });
+  });
+
+  it('succeeds sending a password reset username if appName, publicServerURL, and email adapter are prodvided', done => {
+    const adapter = MockEmailAdapterWithOptions({
+      fromAddress: 'parse@example.com',
+      apiKey: 'k',
+      domain: 'd',
+      sendMail: function(options) {
+        expect(options.to).toEqual('testValidConfig@parse.com');
+        return Promise.resolve();
+      }
+    });
+
+    // delete that handler to force using the default
+    delete adapter.sendPasswordResetEmail;
+
+    spyOn(adapter, 'sendMail').and.callThrough();
+    reconfigureServer({
+      appName: 'coolapp',
+      publicServerURL: 'http://localhost:1337/1',
+      emailAdapter: adapter
+    })
+    .then(() => {
+      const user = new Parse.User();
+      user.setPassword("asdf");
+      user.setUsername("testValidConfig@parse.com");
+      user.signUp(null)
+      .then(() => Parse.User.requestPasswordReset("testValidConfig@parse.com"))
+      .then(() => {
+        expect(adapter.sendMail).toHaveBeenCalled();
         done();
       }, error => {
         done(error);
@@ -507,7 +546,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             done();
           });
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -515,7 +554,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('receives the app name and user in the adapter', done => {
+  it('receives the app name and user in the adapter', done => {
     var emailSent = false;
     var emailAdapter = {
       sendVerificationEmail: options => {
@@ -542,7 +581,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
           expect(emailSent).toBe(true);
           done();
         },
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -550,7 +589,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   })
 
-  it_exclude_dbs(['postgres'])('when you click the link in the email it sets emailVerified to true and redirects you', done => {
+  it('when you click the link in the email it sets emailVerified to true and redirects you', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -574,8 +613,8 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     }).then(() => {
       expect(sendEmailOptions).not.toBeUndefined();
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/verify_email_success.html?username=user');
         user.fetch()
@@ -583,13 +622,11 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
           expect(user.get('emailVerified')).toEqual(true);
           done();
         }, (err) => {
-          console.error(err);
+          jfail(err);
           fail("this should not fail");
           done();
-        }).catch((err) =>
-        {
-          console.error(err);
-          fail(err);
+        }).catch((err) => {
+          jfail(err);
           done();
         })
       });
@@ -610,7 +647,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     .then(() => {
       request.get('http://localhost:8378/1/apps/test/verify_email', {
         followRedirect: false,
-      }, (error, response, body) => {
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
         done()
@@ -632,7 +669,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     .then(() => {
       request.get('http://localhost:8378/1/apps/test/verify_email?token=asdfasdf&username=sadfasga', {
         followRedirect: false,
-      }, (error, response, body) => {
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
         done();
@@ -640,13 +677,13 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('does not update email verified if you use an invalid token', done => {
+  it('does not update email verified if you use an invalid token', done => {
     var user = new Parse.User();
     var emailAdapter = {
-      sendVerificationEmail: options => {
+      sendVerificationEmail: () => {
         request.get('http://localhost:8378/1/apps/test/verify_email?token=invalid&username=zxcv', {
           followRedirect: false,
-        }, (error, response, body) => {
+        }, (error, response) => {
           expect(response.statusCode).toEqual(302);
           expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
           user.fetch()
@@ -671,7 +708,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       user.set('email', 'user@parse.com');
       user.signUp(null, {
         success: () => {},
-        error: function(userAgain, error) {
+        error: function() {
           fail('Failed to save user');
           done();
         }
@@ -679,16 +716,16 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('should send a password reset link', done => {
+  it('should send a password reset link', done => {
     var user = new Parse.User();
     var emailAdapter = {
       sendVerificationEmail: () => Promise.resolve(),
       sendPasswordResetEmail: options => {
         request.get(options.link, {
           followRedirect: false,
-        }, (error, response, body) => {
+        }, (error, response) => {
           if (error) {
-            console.error(error);
+            jfail(error);
             fail("Failed to get the reset link");
             return;
           }
@@ -713,7 +750,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       user.signUp().then(() => {
         Parse.User.requestPasswordReset('user@parse.com', {
           error: (err) => {
-            console.error(err);
+            jfail(err);
             fail("Should not fail requesting a password");
             done();
           }
@@ -736,7 +773,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     .then(() => {
       request.get('http://localhost:8378/1/apps/test/request_password_reset?token=asdfasdf&username=sadfasga', {
         followRedirect: false,
-      }, (error, response, body) => {
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
         done();
@@ -744,16 +781,16 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('should programatically reset password', done => {
+  it('should programatically reset password', done => {
     var user = new Parse.User();
     var emailAdapter = {
       sendVerificationEmail: () => Promise.resolve(),
       sendPasswordResetEmail: options => {
         request.get(options.link, {
           followRedirect: false,
-        }, (error, response, body) => {
+        }, (error, response) => {
           if (error) {
-            console.error(error);
+            jfail(error);
             fail("Failed to get the reset link");
             return;
           }
@@ -771,20 +808,20 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
             url: "http://localhost:8378/1/apps/test/request_password_reset" ,
             body: `new_password=hello&token=${token}&username=zxcv`,
             headers: {
-               'Content-Type': 'application/x-www-form-urlencoded'
+              'Content-Type': 'application/x-www-form-urlencoded'
             },
             followRedirect: false,
-          }, (error, response, body) => {
+          }, (error, response) => {
             if (error) {
-              console.error(error);
+              jfail(error);
               fail("Failed to POST request password reset");
               return;
             }
             expect(response.statusCode).toEqual(302);
-            expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/password_reset_success.html');
+            expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/password_reset_success.html?username=zxcv');
 
-            Parse.User.logIn("zxcv", "hello").then(function(user){
-              let config = new Config('test');
+            Parse.User.logIn("zxcv", "hello").then(function(){
+              const config = new Config('test');
               config.database.adapter.find('_User', { fields: {} }, { 'username': 'zxcv' }, { limit: 1 })
               .then(results => {
                 // _perishable_token should be unset after reset password
@@ -793,7 +830,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
                 done();
               });
             }, (err) => {
-              console.error(err);
+              jfail(err);
               fail("should login with new password");
               done();
             });
@@ -816,7 +853,7 @@ describe("Custom Pages, Email Verification, Password Reset", () => {
       user.signUp().then(() => {
         Parse.User.requestPasswordReset('user@parse.com', {
           error: (err) => {
-            console.error(err);
+            jfail(err);
             fail("Should not fail");
             done();
           }

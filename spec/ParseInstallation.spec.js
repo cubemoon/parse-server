@@ -2,27 +2,30 @@
 // These tests check the Installations functionality of the REST API.
 // Ported from installation_collection_test.go
 
-let auth = require('../src/Auth');
-let cache = require('../src/cache');
-let Config = require('../src/Config');
-let Parse = require('parse/node').Parse;
-let rest = require('../src/rest');
-let request = require("request");
+const auth = require('../src/Auth');
+const Config = require('../src/Config');
+const Parse = require('parse/node').Parse;
+const rest = require('../src/rest');
+const request = require("request");
 
 let config;
 let database;
-let defaultColumns = require('../src/Controllers/SchemaController').defaultColumns;
+const defaultColumns = require('../src/Controllers/SchemaController').defaultColumns;
+
+const delay = function delay(delay) {
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
 
 const installationSchema = { fields: Object.assign({}, defaultColumns._Default, defaultColumns._Installation) };
 
 describe('Installations', () => {
 
-  beforeEach(() => {
+  beforeEach(() => {
     config = new Config('test');
     database = config.database;
   });
 
-  it_exclude_dbs(['postgres'])('creates an android installation with ids', (done) => {
+  it('creates an android installation with ids', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var device = 'android';
     var input = {
@@ -37,10 +40,10 @@ describe('Installations', () => {
       expect(obj.installationId).toEqual(installId);
       expect(obj.deviceType).toEqual(device);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => { console.log(error); jfail(error); done(); });
   });
 
-  it_exclude_dbs(['postgres'])('creates an ios installation with ids', (done) => {
+  it('creates an ios installation with ids', (done) => {
     var t = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var device = 'ios';
     var input = {
@@ -55,10 +58,10 @@ describe('Installations', () => {
       expect(obj.deviceToken).toEqual(t);
       expect(obj.deviceType).toEqual(device);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => { console.log(error); jfail(error); done(); });
   });
 
-  it_exclude_dbs(['postgres'])('creates an embedded installation with ids', (done) => {
+  it('creates an embedded installation with ids', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var device = 'embedded';
     var input = {
@@ -73,10 +76,10 @@ describe('Installations', () => {
       expect(obj.installationId).toEqual(installId);
       expect(obj.deviceType).toEqual(device);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => { console.log(error); jfail(error); done(); });
   });
 
-  it_exclude_dbs(['postgres'])('creates an android installation with all fields', (done) => {
+  it('creates an android installation with all fields', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var device = 'android';
     var input = {
@@ -96,10 +99,10 @@ describe('Installations', () => {
       expect(obj.channels[0]).toEqual('foo');
       expect(obj.channels[1]).toEqual('bar');
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => { console.log(error); jfail(error); done(); });
   });
 
-  it_exclude_dbs(['postgres'])('creates an ios installation with all fields', (done) => {
+  it('creates an ios installation with all fields', (done) => {
     var t = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var device = 'ios';
     var input = {
@@ -119,7 +122,7 @@ describe('Installations', () => {
       expect(obj.channels[0]).toEqual('foo');
       expect(obj.channels[1]).toEqual('bar');
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => { console.log(error); jfail(error); done(); });
   });
 
   it('should properly fail queying installations', (done) => {
@@ -131,9 +134,9 @@ describe('Installations', () => {
     };
     rest.create(config, auth.nobody(config), '_Installation', input)
     .then(() => {
-      let query = new Parse.Query(Parse.Installation);
+      const query = new Parse.Query(Parse.Installation);
       return query.find()
-    }).then((results) => {
+    }).then(() => {
       fail('Should not succeed!');
       done();
     }).catch((error) => {
@@ -143,7 +146,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('should properly queying installations with masterKey', (done) => {
+  it('should properly queying installations with masterKey', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var device = 'android';
     var input = {
@@ -152,7 +155,7 @@ describe('Installations', () => {
     };
     rest.create(config, auth.nobody(config), '_Installation', input)
     .then(() => {
-      let query = new Parse.Query(Parse.Installation);
+      const query = new Parse.Query(Parse.Installation);
       return query.find({useMasterKey: true});
     }).then((results) => {
       expect(results.length).toEqual(1);
@@ -160,7 +163,7 @@ describe('Installations', () => {
       expect(obj.installationId).toEqual(installId);
       expect(obj.deviceType).toEqual(device);
       done();
-    }).catch((error) => {
+    }).catch(() => {
       fail('Should not fail');
       done();
     });
@@ -197,7 +200,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('creates an object with custom fields', (done) => {
+  it('creates an object with custom fields', (done) => {
     var t = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var input = {
       'deviceToken': t,
@@ -205,7 +208,7 @@ describe('Installations', () => {
       'channels': ['foo', 'bar'],
       'custom': 'allowed'
     };
-  rest.create(config, auth.nobody(config), '_Installation', input)
+    rest.create(config, auth.nobody(config), '_Installation', input)
     .then(() => database.adapter.find('_Installation', installationSchema, {}, {}))
     .then(results => {
       expect(results.length).toEqual(1);
@@ -217,10 +220,9 @@ describe('Installations', () => {
 
   // Note: did not port test 'TestObjectIDForIdentifiers'
 
-  it_exclude_dbs(['postgres'])('merging when installationId already exists', (done) => {
+  it('merging when installationId already exists', (done) => {
     var installId1 = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
-    var installId2 = '12345678-abcd-abcd-abcd-123456789abd';
     var input = {
       'deviceToken': t,
       'deviceType': 'ios',
@@ -250,7 +252,7 @@ describe('Installations', () => {
     }).catch((error) => { console.log(error); });
   });
 
-  it_exclude_dbs(['postgres'])('merging when two objects both only have one id', (done) => {
+  it('merging when two objects both only have one id', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input1 = {
@@ -290,7 +292,10 @@ describe('Installations', () => {
       expect(results.length).toEqual(1);
       expect(results[0]['_id']).toEqual(secondObject._id);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch((error) => {
+      jfail(error);
+      done();
+    });
   });
 
   xit('creating multiple devices with same device token works', (done) => {
@@ -324,7 +329,7 @@ describe('Installations', () => {
     }).catch((error) => { console.log(error); });
   });
 
-  it_exclude_dbs(['postgres'])('updating with new channels', (done) => {
+  it('updating with new channels', (done) => {
     var input = {
       installationId: '12345678-abcd-abcd-abcd-123456789abc',
       deviceType: 'android',
@@ -347,13 +352,12 @@ describe('Installations', () => {
       expect(results[0].channels[0]).toEqual('baz');
       done();
     }).catch(error => {
-      console.log(error);
-      fail();
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('update android fails with new installation id', (done) => {
+  it('update android fails with new installation id', (done) => {
     var installId1 = '12345678-abcd-abcd-abcd-123456789abc';
     var installId2 = '87654321-abcd-abcd-abcd-123456789abc';
     var input = {
@@ -376,7 +380,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('update ios fails with new deviceToken and no installationId', (done) => {
+  it('update ios fails with new deviceToken and no installationId', (done) => {
     var a = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var b = '91433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var input = {
@@ -398,7 +402,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('update ios updates device token', (done) => {
+  it('update ios updates device token', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '11433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
     var u = '91433856eed2f1285fb3aa11136718c1198ed5647875096952c66bf8cb976306';
@@ -424,10 +428,13 @@ describe('Installations', () => {
       expect(results.length).toEqual(1);
       expect(results[0].deviceToken).toEqual(u);
       done();
-    });
+    }).catch(err => {
+      jfail(err);
+      done();
+    })
   });
 
-  it_exclude_dbs(['postgres'])('update fails to change deviceType', (done) => {
+  it('update fails to change deviceType', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var input = {
       'installationId': installId,
@@ -451,7 +458,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('update android with custom field', (done) => {
+  it('update android with custom field', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var input = {
       'installationId': installId,
@@ -475,7 +482,7 @@ describe('Installations', () => {
     });
   });
 
-  it_exclude_dbs(['postgres'])('update android device token with duplicate device token', (done) => {
+  it('update android device token with duplicate device token', (done) => {
     var installId1 = '11111111-abcd-abcd-abcd-123456789abc';
     var installId2 = '22222222-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -514,10 +521,13 @@ describe('Installations', () => {
       // The first object should have been deleted
       expect(results.length).toEqual(0);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch(error => {
+      jfail(error);
+      done();
+    });
   });
 
-  it_exclude_dbs(['postgres'])('update ios device token with duplicate device token', (done) => {
+  it('update ios device token with duplicate device token', (done) => {
     var installId1 = '11111111-abcd-abcd-abcd-123456789abc';
     var installId2 = '22222222-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -536,12 +546,14 @@ describe('Installations', () => {
       };
       return rest.create(config, auth.nobody(config), '_Installation', input);
     })
+    .then(() => delay(100))
     .then(() => database.adapter.find('_Installation', installationSchema, {installationId: installId1}, {}))
     .then((results) => {
       expect(results.length).toEqual(1);
       firstObject = results[0];
-      return database.adapter.find('_Installation', installationSchema, {installationId: installId2}, {});
     })
+    .then(() => delay(100))
+    .then(() => database.adapter.find('_Installation', installationSchema, {installationId: installId2}, {}))
     .then(results => {
       expect(results.length).toEqual(1);
       secondObject = results[0];
@@ -552,12 +564,16 @@ describe('Installations', () => {
       };
       return rest.update(config, auth.nobody(config), '_Installation', secondObject.objectId, input);
     })
+    .then(() => delay(100))
     .then(() => database.adapter.find('_Installation', installationSchema, {objectId: firstObject.objectId}, {}))
     .then(results => {
       // The first object should have been deleted
       expect(results.length).toEqual(0);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch(error => {
+      jfail(error);
+      done();
+    });
   });
 
   xit('update ios device token with duplicate token different app', (done) => {
@@ -582,10 +598,13 @@ describe('Installations', () => {
       expect(results.length).toEqual(1);
       expect(results[0].installationId).toEqual(installId2);
       done();
+    }).catch(error => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('update ios token and channels', (done) => {
+  it('update ios token and channels', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input = {
@@ -609,10 +628,13 @@ describe('Installations', () => {
       expect(results[0].deviceToken).toEqual(t);
       expect(results[0].channels.length).toEqual(0);
       done();
+    }).catch(error => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('update ios linking two existing objects', (done) => {
+  it('update ios linking two existing objects', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input = {
@@ -644,10 +666,13 @@ describe('Installations', () => {
       expect(results[0].deviceToken).toEqual(t);
       expect(results[0].deviceType).toEqual('ios');
       done();
+    }).catch(error => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('update is linking two existing objects w/ increment', (done) => {
+  it('update is linking two existing objects w/ increment', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input = {
@@ -684,10 +709,13 @@ describe('Installations', () => {
       expect(results[0].deviceType).toEqual('ios');
       expect(results[0].score).toEqual(1);
       done();
+    }).catch(error => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('update is linking two existing with installation id', (done) => {
+  it('update is linking two existing with installation id', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input = {
@@ -724,10 +752,13 @@ describe('Installations', () => {
       expect(results[0].installationId).toEqual(installId);
       expect(results[0].deviceToken).toEqual(t);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch(error => {
+      jfail(error);
+      done();
+    });
   });
 
-  it_exclude_dbs(['postgres'])('update is linking two existing with installation id w/ op', (done) => {
+  it('update is linking two existing with installation id w/ op', (done) => {
     var installId = '12345678-abcd-abcd-abcd-123456789abc';
     var t = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
     var input = {
@@ -769,10 +800,13 @@ describe('Installations', () => {
       expect(results[0].deviceToken).toEqual(t);
       expect(results[0].score).toEqual(1);
       done();
-    }).catch((error) => { console.log(error); });
+    }).catch(error => {
+      jfail(error);
+      done();
+    });
   });
 
-  it_exclude_dbs(['postgres'])('ios merge existing same token no installation id', (done) => {
+  it('ios merge existing same token no installation id', (done) => {
     // Test creating installation when there is an existing object with the
     // same device token but no installation ID.  This is possible when
     // developers import device tokens from another push provider; the import
@@ -815,15 +849,15 @@ describe('Installations', () => {
   });
 
   it('allows you to get your own installation (regression test for #1718)', done => {
-    let installId = '12345678-abcd-abcd-abcd-123456789abc';
-    let device = 'android';
-    let input = {
+    const installId = '12345678-abcd-abcd-abcd-123456789abc';
+    const device = 'android';
+    const input = {
       'installationId': installId,
       'deviceType': device
     };
     rest.create(config, auth.nobody(config), '_Installation', input)
     .then(createResult => {
-      let headers = {
+      const headers = {
         'X-Parse-Application-Id': 'test',
         'X-Parse-REST-API-Key':   'rest',
       };
@@ -840,6 +874,112 @@ describe('Installations', () => {
       console.log(error);
       fail('failed');
       done();
+    });
+  });
+
+  it('allows you to update installation from header (#2090)', done => {
+    const installId = '12345678-abcd-abcd-abcd-123456789abc';
+    const device = 'android';
+    const input = {
+      'installationId': installId,
+      'deviceType': device
+    };
+    rest.create(config, auth.nobody(config), '_Installation', input)
+    .then(() => {
+      const headers = {
+        'X-Parse-Application-Id': 'test',
+        'X-Parse-REST-API-Key':   'rest',
+        'X-Parse-Installation-Id': installId
+      };
+      request.post({
+        headers: headers,
+        url: 'http://localhost:8378/1/classes/_Installation',
+        json: true,
+        body: {
+          date: new Date()
+        }
+      }, (error, response, body) => {
+        expect(response.statusCode).toBe(200);
+        expect(body.updatedAt).not.toBeUndefined();
+        done();
+      });
+    })
+    .catch(error => {
+      console.log(error);
+      fail('failed');
+      done();
+    });
+  });
+
+  it('allows you to update installation with masterKey', done => {
+    const installId = '12345678-abcd-abcd-abcd-123456789abc';
+    const device = 'android';
+    const input = {
+      'installationId': installId,
+      'deviceType': device
+    };
+    rest.create(config, auth.nobody(config), '_Installation', input)
+    .then(createResult => {
+      const installationObj = Parse.Installation.createWithoutData(createResult.response.objectId);
+      installationObj.set('customField', 'custom value');
+      return installationObj.save(null, {useMasterKey: true});
+    }).then(updateResult => {
+      expect(updateResult).not.toBeUndefined();
+      expect(updateResult.get('customField')).toEqual('custom value');
+      done();
+    }).catch(error => {
+      console.log(error);
+      fail('failed');
+      done();
+    });
+  });
+
+  it('should properly handle installation save #2780', done => {
+    const installId = '12345678-abcd-abcd-abcd-123456789abc';
+    const device = 'android';
+    const input = {
+      'installationId': installId,
+      'deviceType': device
+    };
+    rest.create(config, auth.nobody(config), '_Installation', input).then(() => {
+      const query = new Parse.Query(Parse.Installation);
+      query.equalTo('installationId', installId);
+      query.first({useMasterKey: true}).then((installation) => {
+        return installation.save({
+          key: 'value'
+        }, {useMasterKey: true});
+      }).then(() => {
+        done();
+      }, (err) => {
+        jfail(err)
+        done();
+      });
+    });
+  });
+
+  it('should properly reject updating installationId', done => {
+    const installId = '12345678-abcd-abcd-abcd-123456789abc';
+    const device = 'android';
+    const input = {
+      'installationId': installId,
+      'deviceType': device
+    };
+    rest.create(config, auth.nobody(config), '_Installation', input).then(() => {
+      const query = new Parse.Query(Parse.Installation);
+      query.equalTo('installationId', installId);
+      query.first({useMasterKey: true}).then((installation) => {
+        return installation.save({
+          key: 'value',
+          installationId: '22222222-abcd-abcd-abcd-123456789abc'
+        }, {useMasterKey: true});
+      }).then(() => {
+        fail('should not succeed');
+        done();
+      }, (err) => {
+        expect(err.code).toBe(136);
+        expect(err.message).toBe('installationId may not be changed in this operation');
+        done();
+      });
     });
   });
 

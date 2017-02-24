@@ -1,12 +1,11 @@
 "use strict";
 
-const MockEmailAdapterWithOptions = require('./MockEmailAdapterWithOptions');
 const request = require('request');
-const MongoClient = require("mongodb").MongoClient;
+const Config = require('../src/Config');
 
 describe("Email Verification Token Expiration: ", () => {
 
-  it_exclude_dbs(['postgres'])('show the invalid link page, if the user clicks on the verify email link after the email verify token expires', done => {
+  it('show the invalid link page, if the user clicks on the verify email link after the email verify token expires', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -34,17 +33,20 @@ describe("Email Verification Token Expiration: ", () => {
         expect(sendEmailOptions).not.toBeUndefined();
 
         request.get(sendEmailOptions.link, {
-            followRedirect: false,
-        }, (error, response, body) => {
+          followRedirect: false,
+        }, (error, response) => {
           expect(response.statusCode).toEqual(302);
           expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
           done();
         });
       }, 1000);
+    }).catch((err) => {
+      jfail(err);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('emailVerified should set to false, if the user does not verify their email before the email verify token expires', done => {
+  it('emailVerified should set to false, if the user does not verify their email before the email verify token expires', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -72,24 +74,27 @@ describe("Email Verification Token Expiration: ", () => {
         expect(sendEmailOptions).not.toBeUndefined();
 
         request.get(sendEmailOptions.link, {
-            followRedirect: false,
-        }, (error, response, body) => {
+          followRedirect: false,
+        }, (error, response) => {
           expect(response.statusCode).toEqual(302);
           user.fetch()
           .then(() => {
             expect(user.get('emailVerified')).toEqual(false);
             done();
           })
-          .catch((err) => {
-            fail("this should not fail");
+          .catch(() => {
+            jfail(error);
             done();
           });
         });
       }, 1000);
+    }).catch((error) => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('if user clicks on the email verify link before email verification token expiration then show the verify email success page', done => {
+  it('if user clicks on the email verify link before email verification token expiration then show the verify email success page', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -113,16 +118,19 @@ describe("Email Verification Token Expiration: ", () => {
       return user.signUp();
     }).then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/verify_email_success.html?username=testEmailVerifyTokenValidity');
         done();
       });
+    }).catch((error) => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('if user clicks on the email verify link before email verification token expiration then emailVerified should be true', done => {
+  it('if user clicks on the email verify link before email verification token expiration then emailVerified should be true', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -146,23 +154,26 @@ describe("Email Verification Token Expiration: ", () => {
       return user.signUp();
     }).then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         user.fetch()
         .then(() => {
           expect(user.get('emailVerified')).toEqual(true);
           done();
         })
-        .catch((err) => {
-          fail("this should not fail");
+        .catch((error) => {
+          jfail(error);
           done();
         });
       });
+    }).catch((error) => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('if user clicks on the email verify link before email verification token expiration then user should be able to login', done => {
+  it('if user clicks on the email verify link before email verification token expiration then user should be able to login', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -186,8 +197,8 @@ describe("Email Verification Token Expiration: ", () => {
       return user.signUp();
     }).then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         Parse.User.logIn("testEmailVerifyTokenValidity", "expiringToken")
         .then(user => {
@@ -196,14 +207,17 @@ describe("Email Verification Token Expiration: ", () => {
           done();
         })
         .catch((error) => {
-          fail('login should have succeeded');
+          jfail(error);
           done();
         });
       });
+    }).catch((error) => {
+      jfail(error);
+      done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('sets the _email_verify_token_expires_at and _email_verify_token fields after user SignUp', done => {
+  it('sets the _email_verify_token_expires_at and _email_verify_token fields after user SignUp', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -227,27 +241,26 @@ describe("Email Verification Token Expiration: ", () => {
       return user.signUp();
     })
     .then(() => {
-      const databaseURI = 'mongodb://localhost:27017/parseServerMongoAdapterTestDatabase';
-      return MongoClient.connect(databaseURI);
+      const config = new Config('test');
+      return config.database.find('_User', {username: 'sets_email_verify_token_expires_at'});
     })
-    .then(database => {
-      expect(typeof database).toBe('object');
-      return database.collection('test__User').findOne({username: 'sets_email_verify_token_expires_at'});
-    })
-    .then(user => {
+    .then(results => {
+      expect(results.length).toBe(1);
+      const user = results[0];
       expect(typeof user).toBe('object');
       expect(user.emailVerified).toEqual(false);
       expect(typeof user._email_verify_token).toBe('string');
       expect(typeof user._email_verify_token_expires_at).toBe('object');
+      expect(sendEmailOptions).toBeDefined();
       done();
     })
     .catch(error => {
-      fail("this should not fail");
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('unsets the _email_verify_token_expires_at and _email_verify_token fields in the User class if email verification is successful', done => {
+  it('unsets the _email_verify_token_expires_at and _email_verify_token fields in the User class if email verification is successful', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -272,15 +285,13 @@ describe("Email Verification Token Expiration: ", () => {
     })
     .then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
-
-        const databaseURI = 'mongodb://localhost:27017/parseServerMongoAdapterTestDatabase';
-        MongoClient.connect(databaseURI)
-        .then(database => {
-          expect(typeof database).toBe('object');
-          return database.collection('test__User').findOne({username: 'unsets_email_verify_token_expires_at'});
+        const config = new Config('test');
+        return config.database.find('_User', {username: 'unsets_email_verify_token_expires_at'}).then((results) => {
+          expect(results.length).toBe(1);
+          return results[0];
         })
         .then(user => {
           expect(typeof user).toBe('object');
@@ -290,18 +301,18 @@ describe("Email Verification Token Expiration: ", () => {
           done();
         })
         .catch(error => {
-          fail("this should not fail");
+          jfail(error);
           done();
         });
       });
     })
     .catch(error => {
-      fail("this should not fail");
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('clicking on the email verify link by an email VERIFIED user that was setup before enabling the expire email verify token should show an invalid link', done => {
+  it('clicking on the email verify link by an email VERIFIED user that was setup before enabling the expire email verify token should show an invalid link', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -344,20 +355,20 @@ describe("Email Verification Token Expiration: ", () => {
     })
     .then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
         done();
       });
     })
-    .catch((err) => {
-      fail("this should not fail");
+    .catch((error) => {
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('clicking on the email verify link by an email UNVERIFIED user that was setup before enabling the expire email verify token should show an invalid link', done => {
+  it('clicking on the email verify link by an email UNVERIFIED user that was setup before enabling the expire email verify token should show an invalid link', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -394,36 +405,33 @@ describe("Email Verification Token Expiration: ", () => {
     })
     .then(() => {
       request.get(sendEmailOptions.link, {
-          followRedirect: false,
-      }, (error, response, body) => {
+        followRedirect: false,
+      }, (error, response) => {
         expect(response.statusCode).toEqual(302);
         expect(response.body).toEqual('Found. Redirecting to http://localhost:8378/1/apps/invalid_link.html');
         done();
       });
     })
-    .catch((err) => {
-      fail("this should not fail");
+    .catch((error) => {
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('setting the email on the user should set a new email verification token and new expiration date for the token when expire email verify token flag is set', done => {
+  it('setting the email on the user should set a new email verification token and new expiration date for the token when expire email verify token flag is set', done => {
 
-    const databaseURI = 'mongodb://localhost:27017/parseServerMongoAdapterTestDatabase';
-    let db;
-
-    let user = new Parse.User();
+    const user = new Parse.User();
     let userBeforeEmailReset;
 
     let sendEmailOptions;
-    let emailAdapter = {
+    const emailAdapter = {
       sendVerificationEmail: options => {
         sendEmailOptions = options;
       },
       sendPasswordResetEmail: () => Promise.resolve(),
       sendMail: () => {}
     };
-    let serverConfig = {
+    const serverConfig = {
       appName: 'emailVerifyToken',
       verifyUserEmails: true,
       emailAdapter: emailAdapter,
@@ -439,12 +447,10 @@ describe("Email Verification Token Expiration: ", () => {
       return user.signUp();
     })
     .then(() => {
-      return MongoClient.connect(databaseURI);
-    })
-    .then(database => {
-      expect(typeof database).toBe('object');
-      db = database; //save the db object for later use
-      return db.collection('test__User').findOne({username: 'newEmailVerifyTokenOnEmailReset'});
+      const config = new Config('test');
+      return config.database.find('_User', {username: 'newEmailVerifyTokenOnEmailReset'}).then((results) => {
+        return results[0];
+      });
     })
     .then(userFromDb => {
       expect(typeof userFromDb).toBe('object');
@@ -452,28 +458,31 @@ describe("Email Verification Token Expiration: ", () => {
 
       // trigger another token generation by setting the email
       user.set('email', 'user@parse.com');
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         // wait for half a sec to get a new expiration time
-        setTimeout( () => resolve(user.save()), 500 );
+        setTimeout(() => resolve(user.save()), 500);
       });
     })
     .then(() => {
-      // get user data after email reset and new token generation
-      return db.collection('test__User').findOne({username: 'newEmailVerifyTokenOnEmailReset'});
+      const config = new Config('test');
+      return config.database.find('_User', {username: 'newEmailVerifyTokenOnEmailReset'}).then((results) => {
+        return results[0];
+      });
     })
     .then(userAfterEmailReset => {
       expect(typeof userAfterEmailReset).toBe('object');
       expect(userBeforeEmailReset._email_verify_token).not.toEqual(userAfterEmailReset._email_verify_token);
       expect(userBeforeEmailReset._email_verify_token_expires_at).not.toEqual(userAfterEmailReset.__email_verify_token_expires_at);
+      expect(sendEmailOptions).toBeDefined();
       done();
     })
-    .catch((err) => {
-      fail("this should not fail");
+    .catch((error) => {
+      jfail(error);
       done();
     });
   });
 
-  it_exclude_dbs(['postgres'])('client should not see the _email_verify_token_expires_at field', done => {
+  it('client should not see the _email_verify_token_expires_at field', done => {
     var user = new Parse.User();
     var sendEmailOptions;
     var emailAdapter = {
@@ -502,13 +511,17 @@ describe("Email Verification Token Expiration: ", () => {
       .then(() => {
         expect(user.get('emailVerified')).toEqual(false);
         expect(typeof user.get('_email_verify_token_expires_at')).toBe('undefined');
+        expect(sendEmailOptions).toBeDefined();
         done();
       })
       .catch(error => {
-        fail("this should not fail");
+        jfail(error);
         done();
       });
 
+    }).catch((error) => {
+      jfail(error);
+      done();
     });
   });
 
